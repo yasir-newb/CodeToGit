@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TophHub C++ IDE — Competitive Programming Studio</title>
+  <link rel="stylesheet" href="ide.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body class="theme-dark">
+  <!-- Top Navigation Bar -->
+  <header class="top-nav">
+    <div class="nav-left">
+      <div class="logo">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="16 18 22 12 16 6"></polyline>
+          <polyline points="8 6 2 12 8 18"></polyline>
+        </svg>
+      </div>
+      <div class="brand-info">
+        <span class="brand-title">TophHub <span class="badge">C++ IDE</span></span>
+        <span class="engine-badge" id="compilerBadge">GCC 10.2 (C++20)</span>
+      </div>
+
+      <!-- Problem Slug Input -->
+      <div class="problem-search-box">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="problemInput" placeholder="Enter Toph slug or URL (e.g. formatted-numbers)" value="formatted-numbers">
+        <button id="fetchProblemBtn" class="btn btn-sm btn-outline" title="Load problem statement and test cases from Toph.co">
+          Load Problem
+        </button>
+      </div>
+    </div>
+
+    <!-- Center / Quick Actions -->
+    <div class="nav-center">
+      <button id="runCodeBtn" class="btn btn-primary" title="Compile and Run (Ctrl + Enter)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+          <polygon points="5 3 19 12 5 21 5 3"></polygon>
+        </svg>
+        <span>Run Code</span>
+        <kbd class="shortcut">Ctrl+↵</kbd>
+      </button>
+
+      <button id="testAllBtn" class="btn btn-secondary" title="Run all test cases and check against expected outputs">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+          <polyline points="22 4 12 14.01 9 11.01"></polyline>
+        </svg>
+        <span>Test All Cases</span>
+      </button>
+    </div>
+
+    <!-- Nav Right: Tools & Sync -->
+    <div class="nav-right">
+      <button id="copyCodeBtn" class="btn btn-icon-text" title="Copy clean solution to clipboard for Toph.co submission">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+        </svg>
+        <span>Copy for Toph</span>
+      </button>
+
+      <button id="syncGitHubBtn" class="btn btn-github" title="Commit solution directly to your GitHub repository">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+        </svg>
+        <span>Push to GitHub</span>
+      </button>
+
+      <div class="settings-menu-wrap">
+        <button id="settingsBtn" class="icon-btn" title="IDE Settings">⚙️</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main 3-Pane Layout -->
+  <div class="workspace-container">
+    
+    <!-- Pane 1: Problem Statement & Details -->
+    <aside class="pane pane-problem" id="paneProblem">
+      <div class="pane-header">
+        <div class="pane-title">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+            <polyline points="10 9 9 9 8 9"></polyline>
+          </svg>
+          <span>Problem Statement</span>
+        </div>
+        <a id="problemExternalLink" href="https://toph.co/p/formatted-numbers" target="_blank" class="link-external" title="Open on Toph.co">
+          Open on Toph ↗
+        </a>
+      </div>
+
+      <div class="pane-content problem-body" id="problemStatementContent">
+        <h2 id="displayProblemTitle">Formatted Numbers</h2>
+        <div class="meta-tags">
+          <span class="tag tag-platform">Toph.co</span>
+          <span class="tag tag-lang">C++20</span>
+          <span class="tag tag-slug" id="displaySlug">formatted-numbers</span>
+        </div>
+
+        <div class="problem-section">
+          <h3>Description</h3>
+          <div id="problemDescriptionText">
+            In this problem, you need to print a given integer with comma (,) separated thousands place.
+            For example, <code>1000</code> becomes <code>1,000</code>, and <code>123456789</code> becomes <code>123,456,789</code>.
+          </div>
+        </div>
+
+        <div class="problem-section">
+          <h3>Input</h3>
+          <div id="problemInputFormat">
+            The input contains an integer <code>A</code> (0 ≤ A ≤ 10<sup>9</sup>).
+          </div>
+        </div>
+
+        <div class="problem-section">
+          <h3>Output</h3>
+          <div id="problemOutputFormat">
+            Print the integer <code>A</code> formatted with commas separating thousands.
+          </div>
+        </div>
+
+        <div class="sample-case-card">
+          <div class="sample-header">Sample Input</div>
+          <pre class="sample-box" id="sampleInputPreview">1000000</pre>
+          <div class="sample-header">Sample Output</div>
+          <pre class="sample-box" id="sampleOutputPreview">1,000,000</pre>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Resizer between Pane 1 and Pane 2 -->
+    <div class="gutter gutter-horizontal" id="gutter1"></div>
+
+    <!-- Pane 2: C++ Code Editor -->
+    <main class="pane pane-editor" id="paneEditor">
+      <div class="pane-header editor-header">
+        <div class="editor-tabs">
+          <div class="editor-tab active">
+            <span class="tab-icon">⚡</span>
+            <span class="tab-name" id="currentFileName">solution.cpp</span>
+            <span class="modified-dot" id="dirtyIndicator">•</span>
+          </div>
+        </div>
+        <div class="editor-tools">
+          <button id="resetTemplateBtn" class="btn btn-xs btn-outline" title="Reset to Fast I/O C++ template">
+            Reset Template
+          </button>
+          <button id="formatCodeBtn" class="btn btn-xs btn-outline" title="Format indentation">
+            Format Code
+          </button>
+          <span class="editor-stats" id="cursorPosition">Ln 1, Col 1</span>
+        </div>
+      </div>
+
+      <!-- Editor Canvas -->
+      <div class="editor-container" id="editorContainer">
+        <div class="line-numbers" id="lineNumbers">1</div>
+        <textarea id="codeEditor" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Write your C++ solution here..."></textarea>
+      </div>
+    </main>
+
+    <!-- Resizer between Pane 2 and Pane 3 -->
+    <div class="gutter gutter-horizontal" id="gutter2"></div>
+
+    <!-- Pane 3: Test Cases & Execution Workbench -->
+    <section class="pane pane-testcases" id="paneTestCases">
+      <div class="pane-header workbench-header">
+        <div class="tab-strip" id="caseTabs">
+          <button class="case-tab active" data-case="1">Case 1</button>
+          <button class="case-tab" data-case="2">Case 2</button>
+          <button class="btn-add-case" id="addCaseBtn" title="Add Test Case">+</button>
+        </div>
+        <div class="status-summary" id="overallVerdict">
+          <span class="verdict-tag ready">Ready</span>
+        </div>
+      </div>
+
+      <div class="pane-content workbench-body">
+        <!-- Input Section -->
+        <div class="wb-section">
+          <div class="wb-label-row">
+            <label for="customInput">Standard Input (stdin):</label>
+            <span class="char-count" id="inputStats">0 chars</span>
+          </div>
+          <textarea id="customInput" class="code-textarea" placeholder="Input passed to your C++ program..."></textarea>
+        </div>
+
+        <!-- Expected Output Section -->
+        <div class="wb-section">
+          <div class="wb-label-row">
+            <label for="expectedOutput">Expected Output (Optional for Diff):</label>
+            <button id="loadSampleExpectedBtn" class="link-btn">Load Sample</button>
+          </div>
+          <textarea id="expectedOutput" class="code-textarea small" placeholder="Expected output to verify correctness..."></textarea>
+        </div>
+
+        <!-- Actual Output / Execution Terminal -->
+        <div class="wb-section output-section">
+          <div class="wb-label-row">
+            <label>Program Output (stdout / stderr):</label>
+            <div class="exec-metrics">
+              <span class="metric-badge" id="cpuTimeBadge">Time: --</span>
+              <span class="metric-badge" id="memoryBadge">Memory: --</span>
+            </div>
+          </div>
+          <pre id="outputConsole" class="console-box" tabindex="0">Click 'Run Code' or press Ctrl+Enter to compile and run.</pre>
+        </div>
+
+        <!-- Verdict Diff Banner -->
+        <div id="diffBanner" class="diff-banner hidden">
+          <div class="diff-icon" id="diffIcon">✅</div>
+          <div class="diff-info">
+            <span class="diff-title" id="diffTitle">Accepted</span>
+            <span class="diff-desc" id="diffDesc">Output matches expected results!</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- Settings Modal -->
+  <div id="settingsModal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>⚡ IDE & GitHub Settings</h3>
+        <button id="closeModalBtn" class="modal-close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="modalToken">GitHub Personal Access Token</label>
+          <input type="password" id="modalToken" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
+          <p class="field-hint">Used for 1-click push to your repository.</p>
+        </div>
+        <div class="form-group">
+          <label for="modalRepo">Target GitHub Repository</label>
+          <input type="text" id="modalRepo" placeholder="yasir-newb/tophhub" value="yasir-newb/tophhub">
+        </div>
+        <div class="form-group">
+          <label for="modalBranch">Branch</label>
+          <input type="text" id="modalBranch" value="main">
+        </div>
+        <div class="form-group">
+          <label for="modalCompiler">C++ Compiler Engine</label>
+          <select id="modalCompiler" class="select-input">
+            <option value="piston-gcc10" selected>Piston Cloud (GCC 10.2 / C++20) — Instant, Zero Setup</option>
+            <option value="local">Local Node Server (localhost:3000 / g++)</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="saveSettingsBtn" class="btn btn-primary">Save Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <script src="ide.js"></script>
+</body>
+</html>

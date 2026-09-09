@@ -24,7 +24,8 @@
   ],
   "host_permissions": [
     "https://toph.co/*",
-    "https://api.github.com/*"
+    "https://api.github.com/*",
+    "https://emkc.org/*"
   ],
   "background": {
     "service_worker": "scripts/background.js"

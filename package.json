@@ -4,9 +4,12 @@
   "description": "Automatic C++ problem solver and GitHub sync for Toph.co",
   "main": "cli/toph.js",
   "scripts": {
+    "ide": "node ide/server.js",
+    "start": "node ide/server.js",
     "toph": "node cli/toph.js",
     "init": "node cli/toph.js init",
-    "generate-icons": "node generate_icons.js"
+    "generate-icons": "node generate_icons.js",
+    "package:zip": "powershell Compress-Archive -Path .\\extension\\* -DestinationPath .\\tophhub-extension.zip -Force"
   },
   "keywords": [
     "toph",

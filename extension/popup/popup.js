@@ -22,6 +22,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnText = saveBtn.querySelector('.btn-text');
   const spinner = saveBtn.querySelector('.spinner');
   const createRepoBtn = document.getElementById('createRepoBtn');
+  const openIdeBtn = document.getElementById('openIdeBtn');
+
+  if (openIdeBtn) {
+    openIdeBtn.addEventListener('click', () => {
+      chrome.tabs.create({ url: chrome.runtime.getURL('ide/index.html') });
+    });
+  }
 
   // Load existing config
   chrome.storage.local.get([

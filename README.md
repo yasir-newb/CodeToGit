@@ -149,6 +149,35 @@ int main() {
 
 ---
 
+## ⚡ Built-in C++ Competitive Programming IDE
+
+TophHub now includes a complete, dedicated **C++ Competitive Programming Studio** directly inside the repository!
+
+### 🎯 IDE Features:
+- **3-Panel Layout**:
+  - 📖 **Problem Statement Viewer**: Load problems and sample cases by slug or URL.
+  - 💻 **C++ Code Editor**: Syntax highlighting, line numbers, smart indentation, bracket auto-closing, and Fast I/O templates.
+  - 🧪 **Test Case Workbench**: Multiple test cases, custom stdin, expected output diff checker, runtime and memory metrics.
+- **Zero-Setup Compilation (GCC / C++20)**: Compiles and runs C++ code instantly via cloud execution API without needing MinGW or local compiler setup!
+- **1-Click GitHub Push**: Automatically commits your solution to `toph/<slug>/solution.cpp` on GitHub.
+- **Copy for Toph**: One-click copy formatted solution ready to submit on Toph.co.
+
+### 🚀 How to Launch the IDE:
+
+**Method 1: From the Browser Extension (Easiest)**
+Click the **TophHub** icon in your browser toolbar and click **"Open IDE ↗"**. It opens in a new full-screen tab!
+
+**Method 2: Run with npm**
+```bash
+npm run ide
+```
+Then open `http://localhost:3000` in your browser.
+
+**Method 3: Direct File Launch**
+Double-click `ide/index.html` to open it in your browser offline!
+
+---
+
 ## 💻 Companion CLI (For Local Offline Coding)
 
 Prefer writing and testing your C++ code locally in your IDE? A companion CLI tool is included:
