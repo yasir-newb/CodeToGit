@@ -23,13 +23,207 @@
     compilerEngine: 'piston-gcc10'
   };
 
-  // Standard C++ Template for Formatted Numbers
+  // Curated catalog of Toph.co problems with descriptions and sample test cases
+  const TOPH_CATALOG = {
+    'formatted-numbers': {
+      title: 'Formatted Numbers',
+      desc: 'In this problem, you need to print a given integer with comma (,) separated thousands place.',
+      input: 'The input contains an integer A (0 ≤ A ≤ 10^9).',
+      output: 'Print the integer A formatted with commas separating thousands.',
+      samples: [
+        { stdin: '1000000', expected: '1,000,000' },
+        { stdin: '500', expected: '500' },
+        { stdin: '123456789', expected: '123,456,789' }
+      ]
+    },
+    'copycat': {
+      title: 'Copycat',
+      desc: 'Read a single integer and print it exactly as it is.',
+      input: 'A single integer A (-10^9 ≤ A ≤ 10^9).',
+      output: 'Print the same integer.',
+      samples: [
+        { stdin: '42', expected: '42' },
+        { stdin: '0', expected: '0' },
+        { stdin: '-150', expected: '-150' }
+      ]
+    },
+    'is-prime': {
+      title: 'Is Prime',
+      desc: 'Determine if a given positive integer N is prime or not.',
+      input: 'An integer N (1 < N < 1000).',
+      output: 'Print "Yes" if prime, otherwise "No".',
+      samples: [
+        { stdin: '13', expected: 'Yes' },
+        { stdin: '12', expected: 'No' },
+        { stdin: '2', expected: 'Yes' }
+      ]
+    },
+    'divisors': {
+      title: 'Divisors',
+      desc: 'Print all positive divisors of a given integer in ascending order.',
+      input: 'An integer N (1 ≤ N ≤ 100).',
+      output: 'Print all divisors, each on a new line.',
+      samples: [
+        { stdin: '6', expected: '1\n2\n3\n6' },
+        { stdin: '12', expected: '1\n2\n3\n4\n6\n12' },
+        { stdin: '7', expected: '1\n7' }
+      ]
+    },
+    'thought-game': {
+      title: 'Thought Game',
+      desc: 'Given T test cases, each containing two integers X and Y. If their average is even, print "Sadia will be happy.", otherwise "Oops!".',
+      input: 'An integer T, followed by T lines each with X and Y.',
+      output: 'Print verdict for each case.',
+      samples: [
+        { stdin: '2\n3 5\n2 5', expected: 'Sadia will be happy.\nOops!' }
+      ]
+    },
+    'clock-math': {
+      title: 'Clock Math',
+      desc: 'Calculate the minimum angle between the hour and minute hands of a clock.',
+      input: 'Two integers H (1 ≤ H ≤ 12) and M (0 ≤ M < 60).',
+      output: 'Print the angle in degrees with up to 7 decimal places.',
+      samples: [
+        { stdin: '12 0', expected: '0' },
+        { stdin: '6 0', expected: '180' }
+      ]
+    },
+    'pie-are-squared': {
+      title: 'Pie Are Squared',
+      desc: 'Calculate the area of a circle with given radius R using Pi = 3.141592653589793.',
+      input: 'A single positive integer R (R ≤ 1000).',
+      output: 'Print the area of the circle.',
+      samples: [
+        { stdin: '5', expected: '78.53981633974483' },
+        { stdin: '10', expected: '314.1592653589793' }
+      ]
+    },
+    'running-average': {
+      title: 'Running Average',
+      desc: 'Given N integers, calculate and print the running average after reading each integer.',
+      input: 'An integer N followed by N integers.',
+      output: 'Print running average after each number.',
+      samples: [
+        { stdin: '3\n1 2 3', expected: '1\n1.5\n2' }
+      ]
+    },
+    'byang-and-addition': {
+      title: 'Byang\'s Additions',
+      desc: 'Determine if adding two positive integers produces any carry or not.',
+      input: 'Two positive integers A and B.',
+      output: 'Print "Yes" if there is a carry, otherwise "No".',
+      samples: [
+        { stdin: '123 456', expected: 'No' },
+        { stdin: '555 555', expected: 'Yes' }
+      ]
+    }
+  };
+
+  // Helper: Generates a full CP header containing problem info and test cases in comments
+  function generateCpTemplate(problem, slug) {
+    const today = new Date().toISOString().split('T')[0];
+    const author = 'M Abdullah Yasir Tomal';
+    const samples = problem.samples || [{ stdin: '1', expected: '1' }];
+
+    let testCasesBlock = '';
+    samples.forEach((s, idx) => {
+      testCasesBlock += ` * [Test Case ${idx + 1}]\n`;
+      testCasesBlock += ` * Input:\n`;
+      const inLines = (s.stdin || '').split('\n').map(l => ` *   ${l}`).join('\n');
+      testCasesBlock += `${inLines}\n`;
+      testCasesBlock += ` * Expected Output:\n`;
+      const outLines = (s.expected || '').split('\n').map(l => ` *   ${l}`).join('\n');
+      testCasesBlock += `${outLines}\n`;
+      if (idx < samples.length - 1) testCasesBlock += ` *\n`;
+    });
+
+    return `/**
+ * ============================================================================
+ * Problem   : ${problem.title}
+ * URL       : https://toph.co/p/${slug}
+ * Platform  : Toph.co
+ * Language  : C++20 / C++17
+ * Author    : ${author}
+ * Date      : ${today}
+ * ============================================================================
+ *
+${testCasesBlock} * ============================================================================
+ */
+
+#include <iostream>
+#include <vector>
+#include <string>
+#include <algorithm>
+#include <cmath>
+#include <map>
+#include <set>
+#include <queue>
+#include <numeric>
+
+using namespace std;
+
+#define FAST_IO ios_base::sync_with_stdio(false); cin.tie(NULL); cout.tie(NULL);
+#define all(x) (x).begin(), (x).end()
+#define sz(x) ((int)(x).size())
+
+typedef long long ll;
+typedef pair<int, int> pii;
+typedef pair<ll, ll> pll;
+typedef vector<int> vi;
+typedef vector<ll> vll;
+
+const int INF = 1e9 + 7;
+const ll LINF = 1e18 + 7;
+
+void solve() {
+    // Write your solution here
+    
+}
+
+int main() {
+    FAST_IO;
+    
+    int t = 1;
+    // cin >> t; // Uncomment if multiple test cases
+    while (t--) {
+        solve();
+    }
+    
+    return 0;
+}
+`;
+  }
+
+  // Preloaded working solution for Formatted Numbers with the new CP header
   const DEFAULT_CPP_CODE = 
 `/**
- * Problem: Formatted Numbers
- * URL: https://toph.co/p/formatted-numbers
- * Language: C++20
- * Author: M Abdullah Yasir Tomal
+ * ============================================================================
+ * Problem   : Formatted Numbers
+ * URL       : https://toph.co/p/formatted-numbers
+ * Platform  : Toph.co
+ * Language  : C++20 / C++17
+ * Author    : M Abdullah Yasir Tomal
+ * Date      : 2026-09-09
+ * ============================================================================
+ *
+ * [Test Case 1]
+ * Input:
+ *   1000000
+ * Expected Output:
+ *   1,000,000
+ *
+ * [Test Case 2]
+ * Input:
+ *   500
+ * Expected Output:
+ *   500
+ *
+ * [Test Case 3]
+ * Input:
+ *   123456789
+ * Expected Output:
+ *   123,456,789
+ * ============================================================================
  */
 
 #include <iostream>
@@ -520,74 +714,99 @@ int main() {
     }
   }
 
-  // Load Problem Details
-  function loadProblem(query) {
+  // Load Problem Details, Test Cases & CP Header
+  async function loadProblem(query, preserveCode = false) {
     if (!query) return;
     const slug = query.replace(/^https:\/\/toph\.co\/p\//, '').replace(/\/$/, '').toLowerCase();
     state.problemSlug = slug;
 
-    // Common Toph catalog fallback dictionary
-    const catalog = {
-      'formatted-numbers': {
-        title: 'Formatted Numbers',
-        desc: 'In this problem, you need to print a given integer with comma (,) separated thousands place.',
-        input: 'The input contains an integer A (0 ≤ A ≤ 10^9).',
-        output: 'Print the integer A formatted with commas separating thousands.',
-        sampleIn: '1000000',
-        sampleOut: '1,000,000'
-      },
-      'copycat': {
-        title: 'Copycat',
-        desc: 'Read a single integer and print it exactly as it is.',
-        input: 'A single integer A (-10^9 ≤ A ≤ 10^9).',
-        output: 'Print the same integer.',
-        sampleIn: '42',
-        sampleOut: '42'
-      },
-      'is-prime': {
-        title: 'Is Prime',
-        desc: 'Determine if a given positive integer N is prime or not.',
-        input: 'An integer N (1 < N < 1000).',
-        output: 'Print "Yes" if prime, otherwise "No".',
-        sampleIn: '13',
-        sampleOut: 'Yes'
-      },
-      'divisors': {
-        title: 'Divisors',
-        desc: 'Print all positive divisors of a given integer in ascending order.',
-        input: 'An integer N (1 ≤ N ≤ 100).',
-        output: 'Print all divisors, each on a new line.',
-        sampleIn: '6',
-        sampleOut: '1\n2\n3\n6'
+    // Check catalog or dynamic fetch
+    let problem = TOPH_CATALOG[slug];
+
+    if (!problem) {
+      // Dynamic fetch from Toph.co if accessible
+      try {
+        const res = await fetch(`https://toph.co/p/${slug}`);
+        if (res.ok) {
+          const html = await res.text();
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, 'text/html');
+
+          const title = doc.querySelector('h1, .problem-title')?.textContent?.trim() ||
+            slug.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
+
+          const desc = doc.querySelector('.problem-statement, .panel-body, article')?.textContent?.trim() ||
+            `Problem: ${slug}. Visit the official page on Toph.co to view full details.`;
+
+          const samples = [];
+          const sampleBoxes = doc.querySelectorAll('pre, .sample-box');
+          for (let i = 0; i < sampleBoxes.length - 1; i += 2) {
+            const inText = sampleBoxes[i].textContent.trim();
+            const outText = sampleBoxes[i + 1].textContent.trim();
+            if (inText && outText) {
+              samples.push({ stdin: inText, expected: outText });
+            }
+          }
+
+          problem = {
+            title,
+            desc,
+            input: 'Standard input from problem statement.',
+            output: 'Standard output to verify.',
+            samples: samples.length > 0 ? samples : [{ stdin: '1', expected: '1' }]
+          };
+        }
+      } catch (e) {
+        console.warn('Network fetch unavailable, using fallback template:', e);
       }
-    };
+    }
 
-    const problem = catalog[slug] || {
-      title: slug.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' '),
-      desc: `Problem: ${slug}. Visit the official problem page on Toph.co to view full details.`,
-      input: 'Standard input from problem statement.',
-      output: 'Standard output to verify.',
-      sampleIn: '1',
-      sampleOut: '1'
-    };
+    if (!problem) {
+      problem = {
+        title: slug.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' '),
+        desc: `Problem ${slug} on Toph.co. Visit official page to view full details.`,
+        input: 'Standard input from problem statement.',
+        output: 'Standard output to verify.',
+        samples: [{ stdin: '1', expected: '1' }]
+      };
+    }
 
+    // 1. Update Problem Pane UI
     displayProblemTitle.textContent = problem.title;
     displaySlug.textContent = slug;
     problemDescriptionText.textContent = problem.desc;
-    problemInputFormat.textContent = problem.input;
-    problemOutputFormat.textContent = problem.output;
-    sampleInputPreview.textContent = problem.sampleIn;
-    sampleOutputPreview.textContent = problem.sampleOut;
+    problemInputFormat.textContent = problem.input || 'Standard input format.';
+    problemOutputFormat.textContent = problem.output || 'Standard output format.';
+    sampleInputPreview.textContent = problem.samples[0].stdin;
+    sampleOutputPreview.textContent = problem.samples[0].expected;
     problemExternalLink.href = `https://toph.co/p/${slug}`;
 
-    // Update Case 1 with sample
-    if (state.cases.length > 0) {
-      state.cases[0].stdin = problem.sampleIn;
-      state.cases[0].expected = problem.sampleOut;
-      loadActiveCase();
+    // 2. Automatically Populate Problem Test Cases into the Workbench Tabs
+    state.cases = problem.samples.map((s, idx) => ({
+      id: idx + 1,
+      stdin: s.stdin,
+      expected: s.expected,
+      stdout: '',
+      status: 'ready',
+      time: '--',
+      memory: '--'
+    }));
+    state.activeCaseId = 1;
+    renderCaseTabs();
+    loadActiveCase();
+
+    // 3. Automatically Inject CP Header & Test Cases into the C++ Code Editor
+    if (!preserveCode) {
+      if (slug === 'formatted-numbers') {
+        codeEditor.value = DEFAULT_CPP_CODE;
+      } else {
+        codeEditor.value = generateCpTemplate(problem, slug);
+      }
+      updateLineNumbers();
+      dirtyIndicator.classList.remove('dirty');
     }
 
-    showToast(`Loaded problem: ${problem.title}`, 'success');
+    showToast(`Loaded "${problem.title}" with ${problem.samples.length} test case(s) & CP header!`, 'success');
   }
 
   // 1-Click Push to GitHub
@@ -712,13 +931,20 @@ int main() {
     });
   }
 
-  // Reset Template
+  // Reset Template with CP Header and Test Cases
   function resetTemplate() {
-    if (confirm('Reset editor to the standard C++ Fast I/O template?')) {
-      codeEditor.value = DEFAULT_CPP_CODE;
+    const slug = state.problemSlug;
+    const problem = TOPH_CATALOG[slug] || {
+      title: displayProblemTitle.textContent,
+      desc: problemDescriptionText.textContent,
+      samples: state.cases.map(c => ({ stdin: c.stdin, expected: c.expected }))
+    };
+
+    if (confirm('Reset editor to the standard C++ template with CP header and test cases?')) {
+      codeEditor.value = generateCpTemplate(problem, slug);
       updateLineNumbers();
       dirtyIndicator.classList.add('dirty');
-      showToast('Template reset.', 'success');
+      showToast('Template reset with CP header & test cases.', 'success');
     }
   }
 
