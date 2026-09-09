@@ -119,35 +119,11 @@
     }
   };
 
-  // Helper: Generates a full CP header containing problem info and test cases in comments
+  // Helper: Generates a clean C++ CP template with minimal header
   function generateCpTemplate(problem, slug) {
-    const today = new Date().toISOString().split('T')[0];
-    const author = 'M Abdullah Yasir Tomal';
-    const samples = problem.samples || [{ stdin: '1', expected: '1' }];
-
-    let testCasesBlock = '';
-    samples.forEach((s, idx) => {
-      testCasesBlock += ` * [Test Case ${idx + 1}]\n`;
-      testCasesBlock += ` * Input:\n`;
-      const inLines = (s.stdin || '').split('\n').map(l => ` *   ${l}`).join('\n');
-      testCasesBlock += `${inLines}\n`;
-      testCasesBlock += ` * Expected Output:\n`;
-      const outLines = (s.expected || '').split('\n').map(l => ` *   ${l}`).join('\n');
-      testCasesBlock += `${outLines}\n`;
-      if (idx < samples.length - 1) testCasesBlock += ` *\n`;
-    });
-
     return `/**
- * ============================================================================
- * Problem   : ${problem.title}
- * URL       : https://toph.co/p/${slug}
- * Platform  : Toph.co
- * Language  : C++20 / C++17
- * Author    : ${author}
- * Date      : ${today}
- * ============================================================================
- *
-${testCasesBlock} * ============================================================================
+ * Problem: ${problem.title}
+ * URL: https://toph.co/p/${slug}
  */
 
 #include <bits/stdc++.h> // Includes all standard libraries
@@ -182,36 +158,11 @@ int main() {
 `;
   }
 
-  // Preloaded working solution for Formatted Numbers with the new CP header
+  // Preloaded working solution for Formatted Numbers (clean, no comment bloat)
   const DEFAULT_CPP_CODE = 
 `/**
- * ============================================================================
- * Problem   : Formatted Numbers
- * URL       : https://toph.co/p/formatted-numbers
- * Platform  : Toph.co
- * Language  : C++20 / C++17
- * Author    : M Abdullah Yasir Tomal
- * Date      : 2026-09-09
- * ============================================================================
- *
- * [Test Case 1]
- * Input:
- *   1000000
- * Expected Output:
- *   1,000,000
- *
- * [Test Case 2]
- * Input:
- *   500
- * Expected Output:
- *   500
- *
- * [Test Case 3]
- * Input:
- *   123456789
- * Expected Output:
- *   123,456,789
- * ============================================================================
+ * Problem: Formatted Numbers
+ * URL: https://toph.co/p/formatted-numbers
  */
 
 #include <bits/stdc++.h> // Includes all standard libraries
@@ -713,60 +664,66 @@ int main() {
     }
   }
 
-  // Load Problem Details, Test Cases & CP Header
+  // Load Problem Details & Extract Official Test Cases from Toph.co
   async function loadProblem(query, preserveCode = false) {
     if (!query) return;
     const slug = query.replace(/^https:\/\/toph\.co\/p\//, '').replace(/\/$/, '').toLowerCase();
     state.problemSlug = slug;
 
-    // Check catalog or dynamic fetch
-    let problem = TOPH_CATALOG[slug];
+    showToast(`Loading problem: ${slug}...`, 'info');
 
+    let problem = null;
+
+    // 1. Fetch official JSON directly from Toph.co (works in extension and localhost)
+    try {
+      const res = await fetch(`https://toph.co/p/${slug}.json`);
+      if (res.ok) {
+        const json = await res.json();
+        const statement = (json.statement && json.statement.en_us) ? json.statement.en_us : {};
+        const rawSamples = json.samples || [];
+
+        const samples = rawSamples.map(s => ({
+          stdin: (s.input || '').replace(/\r\n/g, '\n').trim(),
+          expected: (s.output || '').replace(/\r\n/g, '\n').trim()
+        })).filter(s => s.stdin || s.expected);
+
+        problem = {
+          title: statement.title || slug.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' '),
+          desc: stripHtml(statement.bodyHTML || ''),
+          input: stripHtml(statement.inputHTML || ''),
+          output: stripHtml(statement.outputHTML || ''),
+          samples: samples.length > 0 ? samples : [{ stdin: '', expected: '' }]
+        };
+      }
+    } catch (e) {
+      console.warn('Direct Toph JSON fetch unavailable, trying local proxy...', e);
+    }
+
+    // 2. If direct fetch failed (e.g. CORS in standalone browser), try local server proxy
     if (!problem) {
-      // Dynamic fetch from Toph.co if accessible
       try {
-        const res = await fetch(`https://toph.co/p/${slug}`);
-        if (res.ok) {
-          const html = await res.text();
-          const parser = new DOMParser();
-          const doc = parser.parseFromString(html, 'text/html');
-
-          const title = doc.querySelector('h1, .problem-title')?.textContent?.trim() ||
-            slug.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
-
-          const desc = doc.querySelector('.problem-statement, .panel-body, article')?.textContent?.trim() ||
-            `Problem: ${slug}. Visit the official page on Toph.co to view full details.`;
-
-          const samples = [];
-          const sampleBoxes = doc.querySelectorAll('pre, .sample-box');
-          for (let i = 0; i < sampleBoxes.length - 1; i += 2) {
-            const inText = sampleBoxes[i].textContent.trim();
-            const outText = sampleBoxes[i + 1].textContent.trim();
-            if (inText && outText) {
-              samples.push({ stdin: inText, expected: outText });
-            }
-          }
-
-          problem = {
-            title,
-            desc,
-            input: 'Standard input from problem statement.',
-            output: 'Standard output to verify.',
-            samples: samples.length > 0 ? samples : [{ stdin: '1', expected: '1' }]
-          };
+        const proxyRes = await fetch(`/api/problem?slug=${slug}`);
+        if (proxyRes.ok) {
+          problem = await proxyRes.json();
         }
       } catch (e) {
-        console.warn('Network fetch unavailable, using fallback template:', e);
+        console.warn('Local proxy unavailable, checking catalog...', e);
       }
     }
 
+    // 3. Fallback to catalog if network is offline
+    if (!problem) {
+      problem = TOPH_CATALOG[slug];
+    }
+
+    // 4. Default fallback
     if (!problem) {
       problem = {
         title: slug.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' '),
-        desc: `Problem ${slug} on Toph.co. Visit official page to view full details.`,
-        input: 'Standard input from problem statement.',
-        output: 'Standard output to verify.',
-        samples: [{ stdin: '1', expected: '1' }]
+        desc: `Problem ${slug} from Toph.co. Check official page for complete description.`,
+        input: 'Standard input format.',
+        output: 'Standard output format.',
+        samples: [{ stdin: '', expected: '' }]
       };
     }
 
@@ -776,8 +733,8 @@ int main() {
     problemDescriptionText.textContent = problem.desc;
     problemInputFormat.textContent = problem.input || 'Standard input format.';
     problemOutputFormat.textContent = problem.output || 'Standard output format.';
-    sampleInputPreview.textContent = problem.samples[0].stdin;
-    sampleOutputPreview.textContent = problem.samples[0].expected;
+    sampleInputPreview.textContent = (problem.samples[0] && problem.samples[0].stdin) ? problem.samples[0].stdin : '--';
+    sampleOutputPreview.textContent = (problem.samples[0] && problem.samples[0].expected) ? problem.samples[0].expected : '--';
     problemExternalLink.href = `https://toph.co/p/${slug}`;
 
     // 2. Automatically Populate Problem Test Cases into the Workbench Tabs
@@ -794,7 +751,7 @@ int main() {
     renderCaseTabs();
     loadActiveCase();
 
-    // 3. Automatically Inject CP Header & Test Cases into the C++ Code Editor
+    // 3. Clean C++ Code with Minimal Header (No comment bloat, no embedded test cases in code)
     if (!preserveCode) {
       if (slug === 'formatted-numbers') {
         codeEditor.value = DEFAULT_CPP_CODE;
@@ -805,7 +762,14 @@ int main() {
       dirtyIndicator.classList.remove('dirty');
     }
 
-    showToast(`Loaded "${problem.title}" with ${problem.samples.length} test case(s) & CP header!`, 'success');
+    showToast(`Loaded "${problem.title}" with ${problem.samples.length} official test case(s)!`, 'success');
+  }
+
+  function stripHtml(html) {
+    if (!html) return '';
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    return (tmp.textContent || tmp.innerText || '').trim();
   }
 
   // 1-Click Push to GitHub

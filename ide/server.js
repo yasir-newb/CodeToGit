@@ -56,6 +56,18 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // Fetch Problem from Toph.co API: GET /api/problem?slug=<slug>
+  if (req.method === 'GET' && pathname === '/api/problem') {
+    const slug = parsedUrl.searchParams.get('slug');
+    if (!slug) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Missing slug parameter' }));
+      return;
+    }
+    handleFetchProblem(slug, res);
+    return;
+  }
+
   // Static File Serving
   let relativePath = pathname === '/' ? '/index.html' : pathname;
   let filePath = path.join(IDE_DIR, relativePath);
@@ -177,6 +189,66 @@ function cleanupFiles(files) {
       if (fs.existsSync(f)) fs.unlinkSync(f);
     } catch (e) {}
   });
+}
+
+function handleFetchProblem(slug, res) {
+  const https = require('https');
+  const cleanSlug = slug.replace(/^https:\/\/toph\.co\/p\//, '').replace(/\/$/, '').toLowerCase();
+  const url = `https://toph.co/p/${cleanSlug}.json`;
+
+  https.get(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+    }
+  }, clientRes => {
+    let data = '';
+    clientRes.on('data', chunk => data += chunk);
+    clientRes.on('end', () => {
+      if (clientRes.statusCode !== 200) {
+        res.writeHead(clientRes.statusCode, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: `Toph returned status ${clientRes.statusCode}` }));
+        return;
+      }
+      try {
+        const json = JSON.parse(data);
+        const statement = json.statement && json.statement.en_us ? json.statement.en_us : {};
+        const rawSamples = json.samples || [];
+
+        const samples = rawSamples.map(s => ({
+          stdin: (s.input || '').replace(/\r\n/g, '\n').trim(),
+          expected: (s.output || '').replace(/\r\n/g, '\n').trim()
+        }));
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          slug: cleanSlug,
+          title: statement.title || cleanSlug,
+          desc: stripHtml(statement.bodyHTML || ''),
+          input: stripHtml(statement.inputHTML || ''),
+          output: stripHtml(statement.outputHTML || ''),
+          samples: samples
+        }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Failed to parse Toph problem JSON' }));
+      }
+    });
+  }).on('error', err => {
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: err.message }));
+  });
+}
+
+function stripHtml(html) {
+  return html
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 server.listen(PORT, () => {
