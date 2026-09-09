@@ -10,6 +10,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       });
     return true; // Keep message channel open for async response
   }
+
+  if (request.action === 'FETCH_TOPH_PROBLEM') {
+    fetchTophProblem(request.slug)
+      .then(data => sendResponse({ success: true, data }))
+      .catch(err => {
+        console.warn('[TophHub Background] Problem fetch error:', err);
+        sendResponse({ success: false, error: err.message });
+      });
+    return true;
+  }
 });
 
 async function handleCommit(data) {
@@ -46,23 +56,8 @@ async function handleCommit(data) {
   const problemReadmePath = `toph/${problemSlug}/README.md`;
   const rootReadmePath = `README.md`;
 
-  // 1. Prepare Solution Content with Clean C++ Header
-  const dateStr = new Date().toISOString().split('T')[0];
-  const solutionContent = 
-`/**
- * Problem: ${problemTitle}
- * Problem URL: ${problemUrl || `https://toph.co/p/${problemSlug}`}
- * Language: ${language}
- * Verdict: Accepted
- * CPU Time: ${cpuTime} | Memory: ${memory}
- * Submission ID: ${submissionId}
- * Synced: ${dateStr}
- *
- * Synced by TophHub - Competitive Programming to GitHub
- */
-
-${code}
-`;
+  // 1. Prepare Solution Content (Clean code without comment bloat)
+  const solutionContent = code.trim() + '\n';
 
   // 2. Commit Solution File
   const commitMsg = `Solve: ${problemTitle} [Accepted] (${language})`;
@@ -249,3 +244,97 @@ function getStorage(keys) {
     chrome.storage.local.get(keys, resolve);
   });
 }
+
+// Fetch Problem Data directly from Toph.co (runs in background with host permissions, bypassing CORS)
+async function fetchTophProblem(slug) {
+  const cleanSlug = (slug || '')
+    .replace(/.*toph\.co\/p\//i, '')
+    .replace(/[\/?#].*$/, '')
+    .trim()
+    .toLowerCase();
+
+  if (!cleanSlug) {
+    throw new Error('Invalid problem slug');
+  }
+
+  // 1. Try toph.co JSON endpoint
+  try {
+    const jsonRes = await fetch(`https://toph.co/p/${cleanSlug}.json`, {
+      headers: {
+        'Accept': 'application/json, text/plain, */*',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+      }
+    });
+
+    if (jsonRes.ok) {
+      const json = await jsonRes.json();
+      const statement = (json.statement && json.statement.en_us) 
+        ? json.statement.en_us 
+        : (json.statement ? Object.values(json.statement)[0] : {});
+      const rawSamples = json.samples || [];
+      const samples = rawSamples.map(s => ({
+        stdin: (s.input || '').replace(/\r\n/g, '\n').trim(),
+        expected: (s.output || '').replace(/\r\n/g, '\n').trim()
+      })).filter(s => s.stdin || s.expected);
+
+      const title = (statement && statement.title)
+        ? statement.title.trim()
+        : cleanSlug.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
+
+      return {
+        slug: cleanSlug,
+        title: title,
+        desc: stripHtml(statement ? statement.bodyHTML || '' : ''),
+        input: stripHtml(statement ? statement.inputHTML || '' : ''),
+        output: stripHtml(statement ? statement.outputHTML || '' : ''),
+        samples: samples.length > 0 ? samples : [{ stdin: '', expected: '' }]
+      };
+    }
+  } catch (err) {
+    console.warn('[TophHub Background] JSON fetch error:', err);
+  }
+
+  // 2. Fallback to scraping the HTML problem page
+  try {
+    const htmlRes = await fetch(`https://toph.co/p/${cleanSlug}`);
+    if (htmlRes.ok) {
+      const html = await htmlRes.text();
+      let title = '';
+      const titleMatch = html.match(/<title>([^<]*)<\/title>/i);
+      if (titleMatch) {
+        title = titleMatch[1].split('|')[0].trim();
+      }
+      const h1Match = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+      if (h1Match && stripHtml(h1Match[1])) {
+        title = stripHtml(h1Match[1]);
+      }
+
+      return {
+        slug: cleanSlug,
+        title: title || cleanSlug.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' '),
+        desc: `Problem statement for ${title || cleanSlug}. Visit https://toph.co/p/${cleanSlug} for details.`,
+        input: 'Standard input format.',
+        output: 'Standard output format.',
+        samples: [{ stdin: '', expected: '' }]
+      };
+    }
+  } catch (err) {
+    console.warn('[TophHub Background] HTML fetch error:', err);
+  }
+
+  throw new Error(`Could not fetch problem "${cleanSlug}" from Toph.co`);
+}
+
+function stripHtml(html) {
+  if (!html) return '';
+  return html
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+

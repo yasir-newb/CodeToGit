@@ -119,36 +119,28 @@
     }
   };
 
-  // Helper: Generates a clean C++ CP template with minimal header
+  // Helper: Generates a clean C++ CP template with zero comments
   function generateCpTemplate(problem, slug) {
-    return `/**
- * Problem: ${problem.title}
- * URL: https://toph.co/p/${slug}
- */
-
-#include <bits/stdc++.h> // Includes all standard libraries
+    return `#include <bits/stdc++.h>
 using namespace std;
 
-// Type Aliases for faster typing
 using ll = long long;
 using pii = pair<int, int>;
 using vi = vector<int>;
 
-// Macros for loops and debugging
 #define pb push_back
 #define all(x) (x).begin(), (x).end()
 #define fast_io ios_base::sync_with_stdio(false); cin.tie(NULL);
 
 void solve() {
-    // Your logic goes here
     
 }
 
 int main() {
-    fast_io; // Optimizes standard I/O operations for speed
+    fast_io;
     
     int t = 1;
-    cin >> t; // Comment this out if the problem has only 1 test case
+    cin >> t;
     while (t--) {
         solve();
     }
@@ -158,22 +150,15 @@ int main() {
 `;
   }
 
-  // Preloaded working solution for Formatted Numbers (clean, no comment bloat)
+  // Preloaded working solution for Formatted Numbers (clean, zero comments)
   const DEFAULT_CPP_CODE = 
-`/**
- * Problem: Formatted Numbers
- * URL: https://toph.co/p/formatted-numbers
- */
-
-#include <bits/stdc++.h> // Includes all standard libraries
+`#include <bits/stdc++.h>
 using namespace std;
 
-// Type Aliases for faster typing
 using ll = long long;
 using pii = pair<int, int>;
 using vi = vector<int>;
 
-// Macros for loops and debugging
 #define pb push_back
 #define all(x) (x).begin(), (x).end()
 #define fast_io ios_base::sync_with_stdio(false); cin.tie(NULL);
@@ -199,10 +184,9 @@ void solve() {
 }
 
 int main() {
-    fast_io; // Optimizes standard I/O operations for speed
+    fast_io;
     
     int t = 1;
-    // cin >> t; // Comment this out if the problem has only 1 test case
     while (t--) {
         solve();
     }
@@ -265,11 +249,31 @@ int main() {
 
   function init() {
     loadSettings();
-    codeEditor.value = DEFAULT_CPP_CODE;
     updateLineNumbers();
     renderCaseTabs();
     loadActiveCase();
     attachEventListeners();
+
+    // Check for problem parameter in URL (e.g. ?problem=copycat or ?slug=copycat)
+    const urlParams = new URLSearchParams(window.location.search);
+    const querySlug = urlParams.get('problem') || urlParams.get('slug') || urlParams.get('p');
+
+    if (querySlug) {
+      loadProblem(querySlug);
+    } else if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.get(['activeProblemSlug', 'lastProblemSlug'], (data) => {
+        const target = data.activeProblemSlug || data.lastProblemSlug;
+        if (target && target !== 'formatted-numbers') {
+          loadProblem(target);
+        } else {
+          codeEditor.value = DEFAULT_CPP_CODE;
+          updateLineNumbers();
+        }
+      });
+    } else {
+      codeEditor.value = DEFAULT_CPP_CODE;
+      updateLineNumbers();
+    }
   }
 
   function attachEventListeners() {
@@ -667,39 +671,75 @@ int main() {
   // Load Problem Details & Extract Official Test Cases from Toph.co
   async function loadProblem(query, preserveCode = false) {
     if (!query) return;
-    const slug = query.replace(/^https:\/\/toph\.co\/p\//, '').replace(/\/$/, '').toLowerCase();
+    const slug = query
+      .replace(/.*toph\.co\/p\//i, '')
+      .replace(/[\/?#].*$/, '')
+      .trim()
+      .toLowerCase();
+
+    if (!slug) return;
     state.problemSlug = slug;
+    if (problemInput) problemInput.value = slug;
 
     showToast(`Loading problem: ${slug}...`, 'info');
 
     let problem = null;
 
-    // 1. Fetch official JSON directly from Toph.co (works in extension and localhost)
-    try {
-      const res = await fetch(`https://toph.co/p/${slug}.json`);
-      if (res.ok) {
-        const json = await res.json();
-        const statement = (json.statement && json.statement.en_us) ? json.statement.en_us : {};
-        const rawSamples = json.samples || [];
-
-        const samples = rawSamples.map(s => ({
-          stdin: (s.input || '').replace(/\r\n/g, '\n').trim(),
-          expected: (s.output || '').replace(/\r\n/g, '\n').trim()
-        })).filter(s => s.stdin || s.expected);
-
-        problem = {
-          title: statement.title || slug.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' '),
-          desc: stripHtml(statement.bodyHTML || ''),
-          input: stripHtml(statement.inputHTML || ''),
-          output: stripHtml(statement.outputHTML || ''),
-          samples: samples.length > 0 ? samples : [{ stdin: '', expected: '' }]
-        };
+    // 1. If inside Chrome Extension, use background service worker (bypasses CORS with host permissions)
+    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+      try {
+        const bgRes = await new Promise((resolve, reject) => {
+          chrome.runtime.sendMessage({ action: 'FETCH_TOPH_PROBLEM', slug }, res => {
+            if (chrome.runtime.lastError) {
+              reject(chrome.runtime.lastError);
+            } else if (res && res.success && res.data) {
+              resolve(res.data);
+            } else {
+              reject(new Error(res ? res.error : 'Background fetch failed'));
+            }
+          });
+        });
+        if (bgRes && bgRes.title) {
+          problem = bgRes;
+        }
+      } catch (e) {
+        console.warn('Background worker problem fetch failed, trying direct/proxy...', e);
       }
-    } catch (e) {
-      console.warn('Direct Toph JSON fetch unavailable, trying local proxy...', e);
     }
 
-    // 2. If direct fetch failed (e.g. CORS in standalone browser), try local server proxy
+    // 2. Direct fetch from Toph.co JSON endpoint (works in local dev if CORS allowed)
+    if (!problem) {
+      try {
+        const res = await fetch(`https://toph.co/p/${slug}.json`);
+        if (res.ok) {
+          const json = await res.json();
+          const statement = (json.statement && json.statement.en_us) 
+            ? json.statement.en_us 
+            : (json.statement ? Object.values(json.statement)[0] : {});
+          const rawSamples = json.samples || [];
+
+          const samples = rawSamples.map(s => ({
+            stdin: (s.input || '').replace(/\r\n/g, '\n').trim(),
+            expected: (s.output || '').replace(/\r\n/g, '\n').trim()
+          })).filter(s => s.stdin || s.expected);
+
+          problem = {
+            slug,
+            title: (statement && statement.title) 
+              ? statement.title.trim() 
+              : slug.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' '),
+            desc: stripHtml(statement ? statement.bodyHTML || '' : ''),
+            input: stripHtml(statement ? statement.inputHTML || '' : ''),
+            output: stripHtml(statement ? statement.outputHTML || '' : ''),
+            samples: samples.length > 0 ? samples : [{ stdin: '', expected: '' }]
+          };
+        }
+      } catch (e) {
+        console.warn('Direct Toph JSON fetch unavailable, trying local proxy...', e);
+      }
+    }
+
+    // 3. Local server proxy if running standalone node server
     if (!problem) {
       try {
         const proxyRes = await fetch(`/api/problem?slug=${slug}`);
@@ -711,14 +751,15 @@ int main() {
       }
     }
 
-    // 3. Fallback to catalog if network is offline
+    // 4. Fallback to catalog if offline
     if (!problem) {
       problem = TOPH_CATALOG[slug];
     }
 
-    // 4. Default fallback
+    // 5. Default fallback
     if (!problem) {
       problem = {
+        slug,
         title: slug.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' '),
         desc: `Problem ${slug} from Toph.co. Check official page for complete description.`,
         input: 'Standard input format.',
@@ -726,6 +767,8 @@ int main() {
         samples: [{ stdin: '', expected: '' }]
       };
     }
+
+    state.problemTitle = problem.title;
 
     // 1. Update Problem Pane UI
     displayProblemTitle.textContent = problem.title;
@@ -751,7 +794,7 @@ int main() {
     renderCaseTabs();
     loadActiveCase();
 
-    // 3. Clean C++ Code with Minimal Header (No comment bloat, no embedded test cases in code)
+    // 3. Clean C++ Code with Zero Comments
     if (!preserveCode) {
       if (slug === 'formatted-numbers') {
         codeEditor.value = DEFAULT_CPP_CODE;
@@ -762,7 +805,12 @@ int main() {
       dirtyIndicator.classList.remove('dirty');
     }
 
-    showToast(`Loaded "${problem.title}" with ${problem.samples.length} official test case(s)!`, 'success');
+    // Save active problem in storage
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.set({ lastProblemSlug: slug, lastProblemTitle: problem.title });
+    }
+
+    showToast(`Loaded "${problem.title}" from Toph.co!`, 'success');
   }
 
   function stripHtml(html) {
@@ -894,7 +942,7 @@ int main() {
     });
   }
 
-  // Reset Template with CP Header and Test Cases
+  // Reset Template with Clean C++ code
   function resetTemplate() {
     const slug = state.problemSlug;
     const problem = TOPH_CATALOG[slug] || {
@@ -903,11 +951,11 @@ int main() {
       samples: state.cases.map(c => ({ stdin: c.stdin, expected: c.expected }))
     };
 
-    if (confirm('Reset editor to the standard C++ template with CP header and test cases?')) {
-      codeEditor.value = generateCpTemplate(problem, slug);
+    if (confirm('Reset editor to the standard clean C++ template?')) {
+      codeEditor.value = (slug === 'formatted-numbers') ? DEFAULT_CPP_CODE : generateCpTemplate(problem, slug);
       updateLineNumbers();
       dirtyIndicator.classList.add('dirty');
-      showToast('Template reset with CP header & test cases.', 'success');
+      showToast('Template reset.', 'success');
     }
   }
 

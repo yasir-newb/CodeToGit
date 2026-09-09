@@ -180,24 +180,62 @@
     // 1. Extract Problem Slug and Title
     let problemSlug = '';
     let problemTitle = '';
-    const problemLink = document.querySelector('a[href*="/p/"]');
-    if (problemLink) {
-      const href = problemLink.getAttribute('href');
+
+    // Look for problem link on the submission page
+    const links = document.querySelectorAll('a[href*="/p/"]');
+    for (const link of links) {
+      const href = link.getAttribute('href') || '';
       const match = href.match(/\/p\/([a-zA-Z0-9_-]+)/);
-      if (match) {
+      if (match && match[1] && match[1] !== 'problems') {
         problemSlug = match[1];
+        const text = link.textContent.trim();
+        if (text && !text.toLowerCase().includes('problem')) {
+          problemTitle = text;
+        }
+        break;
       }
-      problemTitle = problemLink.textContent.trim();
     }
 
+    // If not found in DOM, check storage from the problem page
     if (!problemSlug) {
-      // Try from document title or URL
-      const titleMatch = document.title.split('-')[0].trim();
-      problemTitle = titleMatch || 'Toph Problem';
-      problemSlug = problemTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      const stored = await getStorage(['activeProblemSlug', 'activeProblemTitle', 'pending_submission']);
+      if (stored.activeProblemSlug) {
+        problemSlug = stored.activeProblemSlug;
+        if (stored.activeProblemTitle) problemTitle = stored.activeProblemTitle;
+      } else if (stored.pending_submission && stored.pending_submission.slug) {
+        problemSlug = stored.pending_submission.slug;
+      }
     }
 
-    // 2. Extract Language, CPU Time, and Memory
+    // 2. Fetch official Problem Title & Statement from Toph via background worker
+    let problemDescription = '';
+    if (problemSlug) {
+      try {
+        const bgData = await new Promise((resolve) => {
+          chrome.runtime.sendMessage({ action: 'FETCH_TOPH_PROBLEM', slug: problemSlug }, (res) => {
+            if (res && res.success && res.data) {
+              resolve(res.data);
+            } else {
+              resolve(null);
+            }
+          });
+        });
+
+        if (bgData) {
+          problemTitle = bgData.title || problemTitle;
+          problemDescription = bgData.desc || '';
+        }
+      } catch (err) {
+        console.warn('[TophHub] Background fetch error:', err);
+      }
+    }
+
+    if (!problemTitle) {
+      const titleMatch = document.title.split('|')[0].trim();
+      problemTitle = titleMatch || (problemSlug ? problemSlug.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ') : 'Toph Problem');
+    }
+
+    // 3. Extract Language, CPU Time, and Memory
     let language = 'C++';
     let cpuTime = '-';
     let memory = '-';
@@ -219,7 +257,7 @@
       }
     }
 
-    // 3. Extract Source Code
+    // 4. Extract Source Code
     let code = '';
     const codeContainer = document.querySelector(
       'pre code, pre.source-code, .source-code pre, #source-code, .source-code, pre'
@@ -230,32 +268,6 @@
 
     // Clean up code trailing spaces
     code = code.trim();
-
-    // 4. Fetch problem statement content from Toph problem page or API
-    let problemDescription = '';
-    let sampleCases = [];
-    try {
-      const problemRes = await fetch(`https://toph.co/p/${problemSlug}`);
-      if (problemRes.ok) {
-        const htmlText = await problemRes.text();
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(htmlText, 'text/html');
-
-        // Extract Title from problem page if not already clean
-        const heading = doc.querySelector('h1, .problem-title, .title');
-        if (heading && heading.textContent.trim()) {
-          problemTitle = heading.textContent.trim();
-        }
-
-        // Extract body content or statement
-        const statementEl = doc.querySelector('.problem-statement, .panel-body, article, .content');
-        if (statementEl) {
-          problemDescription = htmlToMarkdown(statementEl.innerHTML);
-        }
-      }
-    } catch (e) {
-      console.warn('[TophHub] Unable to fetch problem statement:', e);
-    }
 
     return {
       problemSlug,
@@ -268,6 +280,7 @@
       problemUrl: `https://toph.co/p/${problemSlug}`
     };
   }
+}
 
   // Simple HTML to readable Markdown converter
   function htmlToMarkdown(html) {
@@ -364,8 +377,20 @@
   async function initProblemAutoSubmit() {
     const slugMatch = currentPath.match(/\/p\/([a-zA-Z0-9_-]+)/);
     const pageSlug = slugMatch ? slugMatch[1] : '';
-    const hasHash = window.location.hash === '#tophhub-submit';
 
+    // Always record active problem for the IDE and submission watcher
+    if (pageSlug) {
+      const heading = document.querySelector('h1, .problem-title, .title');
+      const pageTitle = (heading && heading.textContent.trim())
+        ? heading.textContent.trim()
+        : document.title.split('|')[0].trim();
+      chrome.storage.local.set({
+        activeProblemSlug: pageSlug,
+        activeProblemTitle: pageTitle
+      });
+    }
+
+    const hasHash = window.location.hash === '#tophhub-submit';
     const storageData = await getStorage(['pending_submission']);
     const pending = storageData.pending_submission;
 

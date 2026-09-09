@@ -193,7 +193,11 @@ function cleanupFiles(files) {
 
 function handleFetchProblem(slug, res) {
   const https = require('https');
-  const cleanSlug = slug.replace(/^https:\/\/toph\.co\/p\//, '').replace(/\/$/, '').toLowerCase();
+  const cleanSlug = (slug || '')
+    .replace(/.*toph\.co\/p\//i, '')
+    .replace(/[\/?#].*$/, '')
+    .trim()
+    .toLowerCase();
   const url = `https://toph.co/p/${cleanSlug}.json`;
 
   https.get(url, {
@@ -211,7 +215,9 @@ function handleFetchProblem(slug, res) {
       }
       try {
         const json = JSON.parse(data);
-        const statement = json.statement && json.statement.en_us ? json.statement.en_us : {};
+        const statement = (json.statement && json.statement.en_us) 
+          ? json.statement.en_us 
+          : (json.statement ? Object.values(json.statement)[0] : {});
         const rawSamples = json.samples || [];
 
         const samples = rawSamples.map(s => ({

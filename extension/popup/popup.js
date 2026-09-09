@@ -26,7 +26,26 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (openIdeBtn) {
     openIdeBtn.addEventListener('click', () => {
-      chrome.tabs.create({ url: chrome.runtime.getURL('ide/index.html') });
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        let slug = '';
+        if (tabs && tabs[0] && tabs[0].url) {
+          const match = tabs[0].url.match(/toph\.co\/p\/([a-zA-Z0-9_-]+)/);
+          if (match) {
+            slug = match[1];
+          }
+        }
+        if (slug) {
+          chrome.tabs.create({ url: chrome.runtime.getURL(`ide/index.html?problem=${slug}`) });
+        } else {
+          chrome.storage.local.get(['activeProblemSlug'], (data) => {
+            const targetSlug = data.activeProblemSlug;
+            const targetUrl = targetSlug 
+              ? chrome.runtime.getURL(`ide/index.html?problem=${targetSlug}`)
+              : chrome.runtime.getURL('ide/index.html');
+            chrome.tabs.create({ url: targetUrl });
+          });
+        }
+      });
     });
   }
 
