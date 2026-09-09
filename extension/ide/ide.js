@@ -150,41 +150,29 @@
 ${testCasesBlock} * ============================================================================
  */
 
-#include <iostream>
-#include <vector>
-#include <string>
-#include <algorithm>
-#include <cmath>
-#include <map>
-#include <set>
-#include <queue>
-#include <numeric>
-
+#include <bits/stdc++.h> // Includes all standard libraries
 using namespace std;
 
-#define FAST_IO ios_base::sync_with_stdio(false); cin.tie(NULL); cout.tie(NULL);
+// Type Aliases for faster typing
+using ll = long long;
+using pii = pair<int, int>;
+using vi = vector<int>;
+
+// Macros for loops and debugging
+#define pb push_back
 #define all(x) (x).begin(), (x).end()
-#define sz(x) ((int)(x).size())
-
-typedef long long ll;
-typedef pair<int, int> pii;
-typedef pair<ll, ll> pll;
-typedef vector<int> vi;
-typedef vector<ll> vll;
-
-const int INF = 1e9 + 7;
-const ll LINF = 1e18 + 7;
+#define fast_io ios_base::sync_with_stdio(false); cin.tie(NULL);
 
 void solve() {
-    // Write your solution here
+    // Your logic goes here
     
 }
 
 int main() {
-    FAST_IO;
+    fast_io; // Optimizes standard I/O operations for speed
     
     int t = 1;
-    // cin >> t; // Uncomment if multiple test cases
+    cin >> t; // Comment this out if the problem has only 1 test case
     while (t--) {
         solve();
     }
@@ -226,13 +214,18 @@ int main() {
  * ============================================================================
  */
 
-#include <iostream>
-#include <string>
-#include <algorithm>
-
+#include <bits/stdc++.h> // Includes all standard libraries
 using namespace std;
 
-#define FAST_IO ios_base::sync_with_stdio(false); cin.tie(NULL);
+// Type Aliases for faster typing
+using ll = long long;
+using pii = pair<int, int>;
+using vi = vector<int>;
+
+// Macros for loops and debugging
+#define pb push_back
+#define all(x) (x).begin(), (x).end()
+#define fast_io ios_base::sync_with_stdio(false); cin.tie(NULL);
 
 void solve() {
     string s;
@@ -255,8 +248,14 @@ void solve() {
 }
 
 int main() {
-    FAST_IO;
-    solve();
+    fast_io; // Optimizes standard I/O operations for speed
+    
+    int t = 1;
+    // cin >> t; // Comment this out if the problem has only 1 test case
+    while (t--) {
+        solve();
+    }
+    
     return 0;
 }
 `;
