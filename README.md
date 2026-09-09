@@ -159,8 +159,10 @@ TophHub now includes a complete, dedicated **C++ Competitive Programming Studio*
   - 💻 **C++ Code Editor**: Syntax highlighting, line numbers, smart indentation, bracket auto-closing, and Fast I/O templates.
   - 🧪 **Test Case Workbench**: Multiple test cases, custom stdin, expected output diff checker, runtime and memory metrics.
 - **Zero-Setup Compilation (GCC / C++20)**: Compiles and runs C++ code instantly via cloud execution API without needing MinGW or local compiler setup!
-- **1-Click GitHub Push**: Automatically commits your solution to `toph/<slug>/solution.cpp` on GitHub.
-- **Copy for Toph**: One-click copy formatted solution ready to submit on Toph.co.
+- **🚀 1-Click Auto-Submit to Toph.co**: Click "Submit to Toph", and TophHub automatically opens the problem, selects C++, injects your solution, and submits it to the judge!
+- **🔄 Seamless Automated Loop**: Code in IDE -> Click Submit -> Toph judge evaluates -> On **Accepted**, automatically pushed to GitHub!
+- **1-Click GitHub Push**: Directly commit your solution to `toph/<slug>/solution.cpp` on GitHub anytime.
+- **Copy for Toph**: One-click copy formatted solution to clipboard.
 
 ### 🚀 How to Launch the IDE:
 

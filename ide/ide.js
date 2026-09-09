@@ -102,6 +102,7 @@ int main() {
 
   const runCodeBtn = document.getElementById('runCodeBtn');
   const testAllBtn = document.getElementById('testAllBtn');
+  const submitTophBtn = document.getElementById('submitTophBtn');
   const copyCodeBtn = document.getElementById('copyCodeBtn');
   const syncGitHubBtn = document.getElementById('syncGitHubBtn');
   const settingsBtn = document.getElementById('settingsBtn');
@@ -147,6 +148,9 @@ int main() {
     // Run & Test Actions
     runCodeBtn.addEventListener('click', () => runActiveCase());
     testAllBtn.addEventListener('click', () => runAllTestCases());
+    if (submitTophBtn) {
+      submitTophBtn.addEventListener('click', submitToToph);
+    }
 
     // Tools
     copyCodeBtn.addEventListener('click', copyCodeToClipboard);
@@ -659,6 +663,43 @@ int main() {
         </svg>
         <span>Push to GitHub</span>
       `;
+    }
+  }
+
+  // Auto-Submit directly to Toph.co
+  function submitToToph() {
+    const code = codeEditor.value;
+    const slug = state.problemSlug;
+
+    if (!code || !code.trim()) {
+      showToast('Please write your C++ solution first!', 'error');
+      return;
+    }
+
+    // Copy to clipboard as immediate backup
+    navigator.clipboard.writeText(code).catch(() => {});
+
+    // Save pending submission for TophHub extension content script
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.set({
+        pending_submission: {
+          slug: slug,
+          code: code,
+          language: 'C++',
+          timestamp: Date.now()
+        }
+      }, () => {
+        showToast('🚀 Launching Toph.co! Auto-filling and submitting...', 'success');
+        if (chrome.tabs && chrome.tabs.create) {
+          chrome.tabs.create({ url: `https://toph.co/p/${slug}#tophhub-submit` });
+        } else {
+          window.open(`https://toph.co/p/${slug}#tophhub-submit`, '_blank');
+        }
+      });
+    } else {
+      // Standalone mode
+      showToast('📋 Code copied! Opening Toph.co for submission...', 'success');
+      window.open(`https://toph.co/p/${slug}#tophhub-submit`, '_blank');
     }
   }
 

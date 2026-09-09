@@ -3,27 +3,26 @@
 (function () {
   'use strict';
 
-  // Only run on submission detail pages or check if on problem page
+  // Route based on URL
   const currentPath = window.location.pathname;
-  if (!currentPath.startsWith('/s/')) {
-    // If not a submission page, we can also monitor if the user is on /p/* and submits
-    return;
+
+  if (currentPath.startsWith('/s/')) {
+    initSubmissionWatcher();
+  } else if (currentPath.startsWith('/p/')) {
+    initProblemAutoSubmit();
   }
 
-  const submissionId = currentPath.split('/')[2];
-  if (!submissionId) return;
+  function initSubmissionWatcher() {
+    const submissionId = currentPath.split('/')[2];
+    if (!submissionId) return;
 
-  console.log(`[TophHub] Watching submission: ${submissionId}`);
+    console.log(`[TophHub] Watching submission: ${submissionId}`);
 
-  let syncAttempted = false;
-  let checkInterval = null;
-  let attempts = 0;
-  const MAX_ATTEMPTS = 30; // Check for up to 30 seconds
+    let syncAttempted = false;
+    let checkInterval = null;
+    let attempts = 0;
+    const MAX_ATTEMPTS = 30; // Check for up to 30 seconds
 
-  // Check initial state or poll until verdict is resolved
-  initWatcher();
-
-  function initWatcher() {
     checkVerdict();
     checkInterval = setInterval(() => {
       attempts++;
@@ -33,7 +32,6 @@
       }
       checkVerdict();
     }, 1000);
-  }
 
   async function checkVerdict() {
     if (syncAttempted) return;
@@ -360,6 +358,160 @@
       '"': '&quot;',
       "'": '&#39;'
     })[m]);
+  }
+
+  // Auto-Submission Handler for Toph.co Problem Pages
+  async function initProblemAutoSubmit() {
+    const slugMatch = currentPath.match(/\/p\/([a-zA-Z0-9_-]+)/);
+    const pageSlug = slugMatch ? slugMatch[1] : '';
+    const hasHash = window.location.hash === '#tophhub-submit';
+
+    const storageData = await getStorage(['pending_submission']);
+    const pending = storageData.pending_submission;
+
+    if (!pending && !hasHash) return;
+
+    // Check freshness (within 10 minutes)
+    if (pending) {
+      const isFresh = (Date.now() - (pending.timestamp || 0)) < 10 * 60 * 1000;
+      if (!isFresh) {
+        chrome.storage.local.remove(['pending_submission']);
+        return;
+      }
+      if (pageSlug && pending.slug && pageSlug !== pending.slug) {
+        return;
+      }
+    }
+
+    console.log('[TophHub] Problem page loaded with auto-submit request! Auto-filling...', pending);
+
+    showToast({
+      title: 'TophHub: Auto-Submitting C++',
+      desc: 'Injecting solution and submitting to Toph judge...',
+      type: 'loading'
+    });
+
+    // Wait 1 second for Toph dynamic DOM components to load
+    setTimeout(async () => {
+      const code = pending ? pending.code : '';
+      const success = await injectCodeAndSubmit(code);
+
+      if (success) {
+        chrome.storage.local.remove(['pending_submission']);
+        if (window.location.hash === '#tophhub-submit') {
+          history.replaceState(null, null, ' ');
+        }
+        showToast({
+          title: '🚀 Auto-Submitted!',
+          desc: 'Solution sent to Toph judge. Waiting for evaluation...',
+          type: 'success'
+        });
+      } else {
+        showToast({
+          title: 'Auto-fill Notice',
+          desc: 'Your solution has been copied to the clipboard. Please paste and submit.',
+          type: 'error'
+        });
+      }
+    }, 1200);
+  }
+
+  async function injectCodeAndSubmit(code) {
+    if (!code) {
+      try {
+        code = await navigator.clipboard.readText();
+      } catch (e) {}
+    }
+    if (!code) return false;
+
+    // 1. Activate Submit Tab / Modal if exists
+    const submitTriggers = [
+      'a[href*="#submit"]',
+      'a[href*="/submit"]',
+      '.tabs a',
+      '.btn-submit',
+      'button[data-target*="submit"]',
+      '#submit-tab'
+    ];
+
+    for (const sel of submitTriggers) {
+      const els = document.querySelectorAll(sel);
+      for (const el of els) {
+        if (el.textContent.toLowerCase().includes('submit')) {
+          el.click();
+          await sleep(400);
+          break;
+        }
+      }
+    }
+
+    // 2. Select C++ in Compiler / Language Dropdown
+    const selects = document.querySelectorAll('select');
+    for (const select of selects) {
+      for (const opt of select.options) {
+        const txt = (opt.textContent || '').toLowerCase();
+        const val = (opt.value || '').toLowerCase();
+        if (txt.includes('c++') || txt.includes('cpp') || val.includes('cpp')) {
+          select.value = opt.value;
+          select.dispatchEvent(new Event('change', { bubbles: true }));
+          break;
+        }
+      }
+    }
+
+    // 3. Inject Source Code
+    let injected = false;
+
+    // Check CodeMirror
+    const cmEl = document.querySelector('.CodeMirror');
+    if (cmEl && cmEl.CodeMirror) {
+      cmEl.CodeMirror.setValue(code);
+      injected = true;
+    }
+
+    // Check Ace Editor
+    if (!injected && window.ace) {
+      const aceEl = document.querySelector('.ace_editor');
+      if (aceEl) {
+        const editor = window.ace.edit(aceEl);
+        if (editor) {
+          editor.setValue(code, 1);
+          injected = true;
+        }
+      }
+    }
+
+    // Check standard Textarea
+    if (!injected) {
+      const textareas = document.querySelectorAll('textarea');
+      for (const ta of textareas) {
+        if (ta.offsetParent !== null) { // visible
+          ta.value = code;
+          ta.dispatchEvent(new Event('input', { bubbles: true }));
+          ta.dispatchEvent(new Event('change', { bubbles: true }));
+          injected = true;
+          break;
+        }
+      }
+    }
+
+    await sleep(600);
+
+    // 4. Click Submit Button
+    const submitBtns = document.querySelectorAll('form button, form input[type="submit"], button.btn-primary');
+    for (const btn of submitBtns) {
+      const txt = (btn.textContent || btn.value || '').toLowerCase();
+      if (txt.includes('submit') || btn.type === 'submit') {
+        btn.click();
+        return true;
+      }
+    }
+
+    return injected;
+  }
+
+  function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   function getStorage(keys) {
