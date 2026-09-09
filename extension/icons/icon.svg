@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4f46e5" />
+      <stop offset="100%" stop-color="#06b6d4" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="url(#grad)" filter="url(#shadow)"/>
+  
+  <!-- Stylized T / Code brackets / Git fork symbol -->
+  <path d="M36 40 L92 40 M64 40 L64 96" stroke="#ffffff" stroke-width="12" stroke-linecap="round"/>
+  <circle cx="64" cy="96" r="8" fill="#ffffff"/>
+  <circle cx="36" cy="40" r="7" fill="#ffffff"/>
+  <circle cx="92" cy="40" r="7" fill="#ffffff"/>
+  
+  <!-- Small badge: C++ -->
+  <rect x="72" y="74" width="46" height="24" rx="6" fill="#10b981"/>
+  <text x="95" y="90" fill="#ffffff" font-size="12" font-family="system-ui, sans-serif" font-weight="900" text-anchor="middle">C++</text>
+</svg>

@@ -1,0 +1,15 @@
+# OS and IDE files
+.DS_Store
+Thumbs.db
+*.exe
+*.o
+*.obj
+*.out
+
+# Node dependencies
+node_modules/
+npm-debug.log*
+
+# Git and temporary
+.vscode/
+.idea/

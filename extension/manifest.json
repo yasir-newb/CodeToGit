@@ -1,0 +1,46 @@
+{
+  "manifest_version": 3,
+  "name": "TophHub - Toph to GitHub Sync",
+  "version": "1.0.0",
+  "description": "Automatically sync your accepted C++ problem solutions and submissions on Toph.co to GitHub.",
+  "author": "Antigravity",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "TophHub Settings",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "permissions": [
+    "storage",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://toph.co/*",
+    "https://api.github.com/*"
+  ],
+  "background": {
+    "service_worker": "scripts/background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://toph.co/*"
+      ],
+      "js": [
+        "scripts/content.js"
+      ],
+      "css": [
+        "scripts/content.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}
