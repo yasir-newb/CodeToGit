@@ -25,6 +25,7 @@
   "host_permissions": [
     "https://toph.co/*",
     "https://api.github.com/*",
+    "https://ce.judge0.com/*",
     "https://emkc.org/*"
   ],
   "background": {

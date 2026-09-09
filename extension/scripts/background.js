@@ -35,56 +35,72 @@ async function handleCommit(data) {
     submissionId
   } = data;
 
-  // Retrieve configuration
-  const config = await getStorage(['githubToken', 'repo', 'branch', 'langPreference', 'syncedCount']);
-  const token = config.githubToken;
-  const repo = config.repo;
-  const branch = config.branch || 'main';
-
-  if (!token || !repo) {
-    throw new Error('GitHub token or repository not configured in TophHub.');
+  if (!code || !code.trim()) {
+    throw new Error('No source code found to commit.');
   }
 
-  const [owner, repoName] = repo.split('/');
+  // Retrieve configuration
+  const config = await getStorage(['githubToken', 'repo', 'branch', 'langPreference', 'syncedCount', 'userInfo']);
+  const token = (config.githubToken || '').trim();
+  let rawRepo = (config.repo || '').trim();
+  const branch = (config.branch || 'main').trim();
+
+  if (!token || !rawRepo) {
+    throw new Error('GitHub token or repository not configured in TophHub settings.');
+  }
+
+  // Sanitize repo string: handles "owner/repo", "https://github.com/owner/repo", or "repo" with userInfo
+  rawRepo = rawRepo.replace(/^https?:\/\/github\.com\//i, '').replace(/^\/+|\/+$/g, '');
+  let parts = rawRepo.split('/').filter(Boolean);
+  let owner = '', repoName = '';
+  if (parts.length >= 2) {
+    owner = parts[0];
+    repoName = parts[1];
+  } else if (parts.length === 1 && config.userInfo && config.userInfo.login) {
+    owner = config.userInfo.login;
+    repoName = parts[0];
+  }
+
   if (!owner || !repoName) {
-    throw new Error('Invalid repository format. Expected "owner/repo".');
+    throw new Error(`Repository "${config.repo}" is invalid. Please set as "username/repository" in TophHub settings.`);
   }
 
   // Determine file extension (defaults to .cpp)
   const ext = getFileExtension(language, config.langPreference);
-  const solutionPath = `toph/${problemSlug}/solution.${ext}`;
-  const problemReadmePath = `toph/${problemSlug}/README.md`;
+  const cleanSlug = (problemSlug || 'problem').trim().toLowerCase();
+  const solutionPath = `toph/${cleanSlug}/solution.${ext}`;
+  const problemReadmePath = `toph/${cleanSlug}/README.md`;
   const rootReadmePath = `README.md`;
 
   // 1. Prepare Solution Content (Clean code without comment bloat)
   const solutionContent = code.trim() + '\n';
 
   // 2. Commit Solution File
-  const commitMsg = `Solve: ${problemTitle} [Accepted] (${language})`;
+  const commitMsg = `Solve: ${problemTitle || cleanSlug} [Accepted] (${language || 'C++'})`;
   await putGitHubFile(owner, repoName, solutionPath, commitMsg, solutionContent, branch, token);
 
   // 3. Commit Problem README
   const problemReadmeContent =
-`# [${problemTitle}](${problemUrl || `https://toph.co/p/${problemSlug}`})
+`# [${problemTitle || cleanSlug}](${problemUrl || `https://toph.co/p/${cleanSlug}`})
 
 - **Platform:** [Toph.co](https://toph.co)
-- **Problem Slug:** \`${problemSlug}\`
+- **Problem Slug:** \`${cleanSlug}\`
 - **Verdict:** Accepted (AC)
-- **Language:** ${language}
-- **CPU Time:** \`${cpuTime}\`
-- **Memory:** \`${memory}\`
-- **Submission ID:** \`${submissionId}\`
+- **Language:** ${language || 'C++'}
+- **CPU Time:** \`${cpuTime || '-'}\`
+- **Memory:** \`${memory || '-'}\`
+- **Submission ID:** \`${submissionId || '-'}\`
 - **Solution:** [\`solution.${ext}\`](./solution.${ext})
 
 ---
 
 ## Problem Description
 
-${problemDescription || '_Problem statement not available. View directly on [Toph.co](' + problemUrl + ')._'}
+${problemDescription || '_Problem statement not available. View directly on [Toph.co](' + (problemUrl || `https://toph.co/p/${cleanSlug}`) + ')._'}
 `;
 
   try {
-    await putGitHubFile(owner, repoName, problemReadmePath, `Docs: Add problem statement for ${problemTitle}`, problemReadmeContent, branch, token);
+    await putGitHubFile(owner, repoName, problemReadmePath, `Docs: Add problem statement for ${problemTitle || cleanSlug}`, problemReadmeContent, branch, token);
   } catch (e) {
     console.warn('[TophHub] Failed to update problem README (non-critical):', e);
   }
@@ -92,12 +108,12 @@ ${problemDescription || '_Problem statement not available. View directly on [Top
   // 4. Update Root README (Index Table of Solved Problems)
   try {
     await updateRootReadme(owner, repoName, rootReadmePath, {
-      title: problemTitle,
-      slug: problemSlug,
-      url: problemUrl || `https://toph.co/p/${problemSlug}`,
-      language,
-      cpuTime,
-      memory,
+      title: problemTitle || cleanSlug,
+      slug: cleanSlug,
+      url: problemUrl || `https://toph.co/p/${cleanSlug}`,
+      language: language || 'C++',
+      cpuTime: cpuTime || '-',
+      memory: memory || '-',
       ext
     }, branch, token);
   } catch (e) {
@@ -106,7 +122,10 @@ ${problemDescription || '_Problem statement not available. View directly on [Top
 
   // Increment synced count
   const newCount = (config.syncedCount || 0) + 1;
-  await chrome.storage.local.set({ syncedCount: newCount });
+  await chrome.storage.local.set({ 
+    syncedCount: newCount,
+    lastSyncedProblem: problemTitle || cleanSlug
+  });
 
   return {
     success: true,
@@ -118,10 +137,12 @@ ${problemDescription || '_Problem statement not available. View directly on [Top
 async function getFileSha(owner, repo, path, branch, token) {
   try {
     const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
+    const authHeader = (token.startsWith('Bearer ') || token.startsWith('token ')) ? token : `Bearer ${token}`;
     const res = await fetch(url, {
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/vnd.github.v3+json'
+        'Authorization': authHeader,
+        'Accept': 'application/vnd.github.v3+json',
+        'User-Agent': 'TophHub-Extension/1.0.0'
       }
     });
 
@@ -140,26 +161,44 @@ async function putGitHubFile(owner, repo, path, message, contentStr, branch, tok
   const existing = await getFileSha(owner, repo, path, branch, token);
   const encodedContent = encodeBase64(contentStr);
 
+  const authHeader = (token.startsWith('Bearer ') || token.startsWith('token ')) ? token : `Bearer ${token}`;
+  const commonHeaders = {
+    'Authorization': authHeader,
+    'Accept': 'application/vnd.github.v3+json',
+    'Content-Type': 'application/json',
+    'User-Agent': 'TophHub-Extension/1.0.0'
+  };
+
   const payload = {
     message: message,
-    content: encodedContent,
-    branch: branch
+    content: encodedContent
   };
+
+  if (branch) {
+    payload.branch = branch;
+  }
 
   if (existing.sha) {
     payload.sha = existing.sha;
   }
 
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
-  const res = await fetch(url, {
+  let res = await fetch(url, {
     method: 'PUT',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Accept': 'application/vnd.github.v3+json',
-      'Content-Type': 'application/json'
-    },
+    headers: commonHeaders,
     body: JSON.stringify(payload)
   });
+
+  // If branch doesn't exist on a new repository, retry without branch parameter
+  if (!res.ok && (res.status === 404 || res.status === 409 || res.status === 422) && payload.branch) {
+    console.warn(`[TophHub] PUT ${path} failed with status ${res.status}. Retrying without branch...`);
+    delete payload.branch;
+    res = await fetch(url, {
+      method: 'PUT',
+      headers: commonHeaders,
+      body: JSON.stringify(payload)
+    });
+  }
 
   if (!res.ok) {
     const errData = await res.json().catch(() => ({}));

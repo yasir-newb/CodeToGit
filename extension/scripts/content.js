@@ -21,7 +21,7 @@
     let syncAttempted = false;
     let checkInterval = null;
     let attempts = 0;
-    const MAX_ATTEMPTS = 30; // Check for up to 30 seconds
+    const MAX_ATTEMPTS = 45; // Check for up to 45 seconds
 
     checkVerdict();
     checkInterval = setInterval(() => {
@@ -36,56 +36,104 @@
   async function checkVerdict() {
     if (syncAttempted) return;
 
-    // Check if autoSync is enabled in extension storage
-    const config = await getStorage(['autoSync', 'githubToken', 'repo']);
-    if (!config.githubToken || !config.repo) {
-      // User hasn't configured token or repo yet
-      return;
-    }
-    if (config.autoSync === false) {
-      return;
-    }
-
-    // Check if this submission has already been synced
-    const syncedKey = `synced_${submissionId}`;
-    const alreadySynced = await getStorage([syncedKey]);
-    if (alreadySynced[syncedKey]) {
-      return;
-    }
-
     const verdict = findVerdictText();
     if (!verdict) return;
 
-    if (verdict.toLowerCase().includes('accepted')) {
+    const isAC = isAcceptedVerdict(verdict);
+    const isPending = isPendingVerdict(verdict);
+
+    if (isAC) {
       syncAttempted = true;
       clearInterval(checkInterval);
+
+      // Check if autoSync is enabled in extension storage
+      const config = await getStorage(['autoSync', 'githubToken', 'repo']);
+      if (!config.githubToken || !config.repo) {
+        showToast({
+          title: 'TophHub: Accepted Problem Detected!',
+          desc: 'Click the TophHub extension icon in your browser toolbar to connect your GitHub token & repo to auto-push.',
+          type: 'warning'
+        });
+        return;
+      }
+
+      if (config.autoSync === false) {
+        showToast({
+          title: 'TophHub: Auto-sync is Paused',
+          desc: 'Enable auto-sync in TophHub extension popup to automatically push solutions.',
+          type: 'warning'
+        });
+        return;
+      }
+
+      // Check if this submission has already been synced
+      const syncedKey = `synced_${submissionId}`;
+      const alreadySynced = await getStorage([syncedKey]);
+      if (alreadySynced[syncedKey]) {
+        console.log(`[TophHub] Submission ${submissionId} already synced.`);
+        return;
+      }
+
       handleAcceptedSubmission(config);
-    } else if (isPendingVerdict(verdict)) {
-      // Still running/judging, keep polling
-      console.log(`[TophHub] Submission ${submissionId} verdict: ${verdict} (waiting...)`);
-    } else {
-      // Final verdict is not accepted (e.g. Wrong Answer, TLE, etc.)
+    } else if (isPending) {
+      console.log(`[TophHub] Submission ${submissionId} verdict: ${verdict} (judging...)`);
+    } else if (isFailedVerdict(verdict)) {
+      // Definitive non-accepted verdict (Wrong Answer, TLE, etc.)
       clearInterval(checkInterval);
       console.log(`[TophHub] Submission ${submissionId} verdict: ${verdict} (not accepted)`);
     }
   }
 
+  function isAcceptedVerdict(text) {
+    if (!text) return false;
+    const clean = text.trim().toLowerCase();
+    if (clean === 'ac' || clean === 'accepted') return true;
+    if (clean.startsWith('accepted') || clean.startsWith('ac ') || clean.endsWith(' ac')) return true;
+    if (clean.includes('accepted (ac)') || clean.includes('(ac)') || clean.includes('verdict: accepted')) return true;
+    if (/\b(accepted|ac)\b/i.test(clean) && !clean.includes('not accepted')) return true;
+    return false;
+  }
+
   function isPendingVerdict(text) {
+    if (!text) return false;
     const lower = text.toLowerCase();
-    return lower.includes('queue') || lower.includes('run') || lower.includes('judg') || lower.includes('wait');
+    return lower.includes('queue') || 
+           lower.includes('run') || 
+           lower.includes('judg') || 
+           lower.includes('wait') || 
+           lower.includes('test') || 
+           lower.includes('compil') || 
+           lower.includes('pend');
+  }
+
+  function isFailedVerdict(text) {
+    if (!text) return false;
+    const lower = text.toLowerCase();
+    return lower.includes('wrong') || 
+           lower.includes('wa') || 
+           lower.includes('time limit') || 
+           lower.includes('tle') || 
+           lower.includes('memory limit') || 
+           lower.includes('mle') || 
+           lower.includes('runtime error') || 
+           lower.includes('rte') || 
+           lower.includes('compilation error') || 
+           lower.includes('compile error') || 
+           lower.includes('ce');
   }
 
   function findVerdictText() {
     // Look for verdict elements in Toph DOM
-    // Common selectors on Toph: .verdict, .label-success, [data-verdict], or table cells
     const selectors = [
       '.verdict',
       '.submission-verdict',
-      '.label-success',
+      '[data-verdict]',
       '.tag.is-success',
+      '.label-success',
       '.text-success',
       'span[class*="verdict"]',
-      'div[class*="verdict"]'
+      'div[class*="verdict"]',
+      'td[class*="verdict"]'
     ];
 
     for (const sel of selectors) {
@@ -95,13 +143,13 @@
       }
     }
 
-    // Fallback: search table rows or definition lists
-    const tableCells = document.querySelectorAll('td, th, dd, dt, span, div');
-    for (const cell of tableCells) {
+    // Fallback: search table rows, badges or definition lists
+    const candidates = document.querySelectorAll('td, th, span.tag, span.badge, div.verdict, .label');
+    for (const cell of candidates) {
       const text = cell.textContent.trim();
-      if (text === 'Accepted' || text === 'Accepted (AC)' || text.startsWith('Accepted')) {
-        return 'Accepted';
-      }
+      if (isAcceptedVerdict(text)) return text;
+      if (isFailedVerdict(text)) return text;
+      if (isPendingVerdict(text)) return text;
     }
 
     return null;
@@ -259,15 +307,58 @@
 
     // 4. Extract Source Code
     let code = '';
-    const codeContainer = document.querySelector(
-      'pre code, pre.source-code, .source-code pre, #source-code, .source-code, pre'
-    );
-    if (codeContainer) {
-      code = codeContainer.innerText || codeContainer.textContent;
+
+    // Check Ace Editor instance if present on page
+    if (window.ace) {
+      const aceEl = document.querySelector('.ace_editor');
+      if (aceEl) {
+        try {
+          const editor = window.ace.edit(aceEl);
+          if (editor && editor.getValue) code = editor.getValue();
+        } catch (e) {}
+      }
     }
 
-    // Clean up code trailing spaces
-    code = code.trim();
+    // Check CodeMirror
+    if (!code) {
+      const cmEl = document.querySelector('.CodeMirror');
+      if (cmEl && cmEl.CodeMirror) {
+        try {
+          code = cmEl.CodeMirror.getValue();
+        } catch (e) {}
+      }
+    }
+
+    // Check pre, code, and textarea containers - select block with CP code markers or longest content
+    if (!code) {
+      const codeBlocks = Array.from(document.querySelectorAll('pre code, pre.source-code, .source-code pre, #source-code, .source-code, pre, textarea'));
+      let bestBlock = '';
+      for (const block of codeBlocks) {
+        const text = (block.value || block.innerText || block.textContent || '').trim();
+        if (text.includes('#include') || text.includes('using namespace') || text.includes('int main')) {
+          bestBlock = text;
+          break;
+        }
+        if (text.length > bestBlock.length) {
+          bestBlock = text;
+        }
+      }
+      if (bestBlock.length > 20) {
+        code = bestBlock;
+      }
+    }
+
+    // Fallback to locally preserved code from IDE or submission hook
+    if (!code) {
+      const stored = await getStorage(['last_submitted_code', 'pending_submission']);
+      if (stored.last_submitted_code && stored.last_submitted_code.code) {
+        code = stored.last_submitted_code.code;
+      } else if (stored.pending_submission && stored.pending_submission.code) {
+        code = stored.pending_submission.code;
+      }
+    }
+
+    code = (code || '').trim();
 
     return {
       problemSlug,
@@ -379,9 +470,10 @@
     const pageSlug = slugMatch ? slugMatch[1] : '';
 
     // Always record active problem for the IDE and submission watcher
+    let pageTitle = '';
     if (pageSlug) {
       const heading = document.querySelector('h1, .problem-title, .title');
-      const pageTitle = (heading && heading.textContent.trim())
+      pageTitle = (heading && heading.textContent.trim())
         ? heading.textContent.trim()
         : document.title.split('|')[0].trim();
       chrome.storage.local.set({
@@ -389,6 +481,38 @@
         activeProblemTitle: pageTitle
       });
     }
+
+    // Attach submit listener to capture manually submitted code directly on Toph
+    document.addEventListener('submit', () => {
+      try {
+        let code = '';
+        if (window.ace) {
+          const aceEl = document.querySelector('.ace_editor');
+          if (aceEl) {
+            const editor = window.ace.edit(aceEl);
+            if (editor && editor.getValue) code = editor.getValue();
+          }
+        }
+        if (!code) {
+          const cmEl = document.querySelector('.CodeMirror');
+          if (cmEl && cmEl.CodeMirror) code = cmEl.CodeMirror.getValue();
+        }
+        if (!code) {
+          const ta = document.querySelector('textarea[name*="source"], textarea[name*="code"], textarea');
+          if (ta) code = ta.value;
+        }
+        if (code && code.trim().length > 15) {
+          chrome.storage.local.set({
+            last_submitted_code: {
+              code: code.trim(),
+              slug: pageSlug,
+              title: pageTitle,
+              timestamp: Date.now()
+            }
+          });
+        }
+      } catch (err) {}
+    }, true);
 
     const hasHash = window.location.hash === '#tophhub-submit';
     const storageData = await getStorage(['pending_submission']);
@@ -419,6 +543,19 @@
     // Wait 1 second for Toph dynamic DOM components to load
     setTimeout(async () => {
       const code = pending ? pending.code : '';
+
+      // Preserve code in last_submitted_code before submitting
+      if (code) {
+        chrome.storage.local.set({
+          last_submitted_code: {
+            code: code,
+            slug: pageSlug || (pending ? pending.slug : ''),
+            title: pageTitle,
+            timestamp: Date.now()
+          }
+        });
+      }
+
       const success = await injectCodeAndSubmit(code);
 
       if (success) {

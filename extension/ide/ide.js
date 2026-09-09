@@ -562,7 +562,7 @@ int main() {
     }
   }
 
-  // Core C++ Compilation Engine (Piston Cloud API or Local Server)
+  // Core C++ Compilation Engine (Judge0 CE GCC 14.1 API or Local Server)
   async function executeCppCode(code, stdin) {
     const startTime = performance.now();
 
@@ -577,46 +577,83 @@ int main() {
       return await localRes.json();
     }
 
-    // Default: Piston Cloud Compiler API
-    const response = await fetch('https://emkc.org/api/v2/piston/execute', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        language: 'cpp',
-        version: '10.2.0',
-        files: [
-          {
-            name: 'solution.cpp',
-            content: code
-          }
-        ],
-        stdin: stdin || ''
-      })
-    });
+    // Default: Fast, Free Public Judge0 CE (GCC 14.1.0, modern C++20 / C++23)
+    try {
+      const response = await fetch('https://ce.judge0.com/submissions?base64_encoded=false&wait=true', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          source_code: code,
+          language_id: 105, // C++ (GCC 14.1.0)
+          stdin: stdin || ''
+        })
+      });
 
-    const endTime = performance.now();
-    const durationMs = Math.round(endTime - startTime);
+      const endTime = performance.now();
+      const durationMs = Math.round(endTime - startTime);
 
-    if (!response.ok) {
-      throw new Error(`Compiler API error (${response.status})`);
+      if (response.ok) {
+        const data = await response.json();
+        let stdout = (data.stdout || '').trim();
+        let stderr = (data.compile_output || data.stderr || '').trim();
+
+        if (!stdout && stderr) {
+          stdout = stderr;
+        }
+
+        return {
+          stdout: stdout,
+          stderr: stderr,
+          durationMs,
+          time: data.time ? `${data.time}s` : `${(durationMs / 1000).toFixed(2)}s`,
+          memory: data.memory ? `${(data.memory / 1024).toFixed(1)}MB` : '1.2MB',
+          exitCode: data.status && data.status.id === 3 ? 0 : 1
+        };
+      }
+    } catch (err) {
+      console.warn('Judge0 CE GCC 14 failed, trying fallback...', err);
     }
 
-    const data = await response.json();
-    const runResult = data.run || {};
-    const compileResult = data.compile || {};
+    // Fallback: Judge0 GCC 9.2.0 (Language ID 54)
+    try {
+      const response = await fetch('https://ce.judge0.com/submissions?base64_encoded=false&wait=true', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({
+          source_code: code,
+          language_id: 54, // GCC 9.2.0
+          stdin: stdin || ''
+        })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        let stdout = (data.stdout || '').trim();
+        let stderr = (data.compile_output || data.stderr || '').trim();
+        if (!stdout && stderr) stdout = stderr;
+        return {
+          stdout,
+          stderr,
+          time: data.time ? `${data.time}s` : '0.01s',
+          memory: data.memory ? `${(data.memory / 1024).toFixed(1)}MB` : '1.2MB',
+          exitCode: data.status && data.status.id === 3 ? 0 : 1
+        };
+      }
+    } catch (e) {}
 
-    let stderr = compileResult.stderr || runResult.stderr || '';
-    let stdout = runResult.stdout || '';
+    // Fallback to local server if available
+    try {
+      const localRes = await fetch('http://localhost:3000/api/compile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, stdin, language: 'cpp' })
+      });
+      if (localRes.ok) return await localRes.json();
+    } catch (e) {}
 
-    return {
-      stdout: stdout.trim(),
-      stderr: stderr.trim(),
-      durationMs,
-      time: (durationMs / 1000).toFixed(2),
-      exitCode: runResult.code
-    };
+    throw new Error('Compiler API unavailable. Please check your internet connection.');
   }
 
   // Diff Checker
@@ -822,15 +859,65 @@ int main() {
 
   // 1-Click Push to GitHub
   async function syncSolutionToGitHub() {
+    syncGitHubBtn.disabled = true;
+    syncGitHubBtn.innerHTML = `<span>⏳ Committing...</span>`;
+
+    const payload = {
+      problemSlug: state.problemSlug,
+      problemTitle: displayProblemTitle.textContent,
+      language: 'C++',
+      cpuTime: (cpuTimeBadge.textContent || '').replace('Time: ', '').trim() || '0.01s',
+      memory: (memoryBadge.textContent || '').replace('Memory: ', '').trim() || '1.2MB',
+      code: codeEditor.value,
+      problemDescription: problemDescriptionText.textContent,
+      problemUrl: problemExternalLink.href,
+      submissionId: 'ide-' + Date.now()
+    };
+
+    // If inside Chrome extension, commit via background worker (avoids CORS and uses popup settings)
+    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+      chrome.runtime.sendMessage({
+        action: 'COMMIT_SOLUTION',
+        payload
+      }, (response) => {
+        syncGitHubBtn.disabled = false;
+        syncGitHubBtn.innerHTML = `
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+          </svg>
+          <span>Push to GitHub</span>
+        `;
+
+        if (chrome.runtime.lastError) {
+          showToast(`GitHub Error: ${chrome.runtime.lastError.message}`, 'error');
+          return;
+        }
+
+        if (response && response.success) {
+          dirtyIndicator.classList.remove('dirty');
+          showToast(`🎉 Pushed solution to GitHub!`, 'success');
+        } else {
+          showToast(`Commit failed: ${response ? response.error : 'Unknown error'}`, 'error');
+          if (response && response.error && response.error.toLowerCase().includes('token')) {
+            settingsModal.classList.remove('hidden');
+          }
+        }
+      });
+      return;
+    }
+
+    // Standalone fallback
     if (!state.githubToken) {
       settingsModal.classList.remove('hidden');
       showToast('Please enter your GitHub Personal Access Token first.', 'error');
+      syncGitHubBtn.disabled = false;
       return;
     }
 
     const [owner, repoName] = state.githubRepo.split('/');
     if (!owner || !repoName) {
       showToast('Invalid repository name. Format: username/repo', 'error');
+      syncGitHubBtn.disabled = false;
       return;
     }
 
@@ -839,16 +926,13 @@ int main() {
     const message = `Solve: ${displayProblemTitle.textContent} in C++ [Accepted]`;
     const content = codeEditor.value;
 
-    syncGitHubBtn.disabled = true;
-    syncGitHubBtn.innerHTML = `<span>⏳ Committing...</span>`;
-
     try {
-      // 1. Get existing SHA if file exists
       let sha = null;
       const getRes = await fetch(`https://api.github.com/repos/${owner}/${repoName}/contents/${filePath}?ref=${state.githubBranch}`, {
         headers: {
-          'Authorization': `Bearer ${state.githubToken}`,
-          'Accept': 'application/vnd.github.v3+json'
+          'Authorization': state.githubToken.startsWith('Bearer ') ? state.githubToken : `Bearer ${state.githubToken}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'TophHub-Extension'
         }
       });
 
@@ -857,7 +941,6 @@ int main() {
         sha = fileData.sha;
       }
 
-      // 2. Put file
       const putPayload = {
         message: message,
         content: btoa(unescape(encodeURIComponent(content))),
@@ -868,9 +951,10 @@ int main() {
       const putRes = await fetch(`https://api.github.com/repos/${owner}/${repoName}/contents/${filePath}`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${state.githubToken}`,
+          'Authorization': state.githubToken.startsWith('Bearer ') ? state.githubToken : `Bearer ${state.githubToken}`,
           'Accept': 'application/vnd.github.v3+json',
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'User-Agent': 'TophHub-Extension'
         },
         body: JSON.stringify(putPayload)
       });
