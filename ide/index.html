@@ -77,6 +77,11 @@
         <span>Push to GitHub</span>
       </button>
 
+      <button id="soundToggleBtn" class="btn btn-icon-text btn-sound active" title="Toggle Audio Feedback for Accepted & Not Accepted Verdicts">
+        <span class="sound-icon" id="soundIcon">🔊</span>
+        <span id="soundLabel">Sound: ON</span>
+      </button>
+
       <div class="settings-menu-wrap">
         <button id="settingsBtn" class="icon-btn" title="IDE Settings">⚙️</button>
       </div>
@@ -157,6 +162,18 @@
           </div>
         </div>
         <div class="editor-tools">
+          <div class="snippets-dropdown-wrap">
+            <button id="snippetsBtn" class="btn btn-xs btn-outline" title="Browse C++ CP Snippets (or press Ctrl+Space in editor)">
+              <span>⚡ Snippets ▾</span>
+            </button>
+            <div id="snippetsMenu" class="snippets-menu hidden">
+              <div class="snippets-menu-header">
+                <span>CP Snippets Catalog</span>
+                <kbd>Ctrl+Space</kbd>
+              </div>
+              <div class="snippets-menu-list" id="snippetsMenuList"></div>
+            </div>
+          </div>
           <button id="resetTemplateBtn" class="btn btn-xs btn-outline" title="Reset to Fast I/O C++ template">
             Reset Template
           </button>
@@ -164,6 +181,7 @@
             Format Code
           </button>
           <span class="editor-stats" id="cursorPosition">Ln 1, Col 1</span>
+          <span class="editor-stats shortcut-hint" title="Press Ctrl+Space to trigger code suggestions">Ctrl+Space</span>
         </div>
       </div>
 
@@ -171,6 +189,23 @@
       <div class="editor-container" id="editorContainer">
         <div class="line-numbers" id="lineNumbers">1</div>
         <textarea id="codeEditor" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Write your C++ solution here..."></textarea>
+
+        <!-- Dynamic Code Suggestion & Snippet Popup -->
+        <div id="suggestionBox" class="suggestion-box hidden">
+          <div class="suggestion-list" id="suggestionList"></div>
+          <div class="suggestion-preview" id="suggestionPreview">
+            <div class="preview-header">
+              <span class="preview-title" id="previewTitle">Snippet</span>
+              <span class="preview-badge" id="previewBadge">CP</span>
+            </div>
+            <div class="preview-desc" id="previewDesc">Description</div>
+            <pre class="preview-code"><code id="previewCode"></code></pre>
+            <div class="preview-footer">
+              <span class="key-hint"><kbd>Tab</kbd> or <kbd>↵</kbd> Insert</span>
+              <span class="key-hint"><kbd>Esc</kbd> Close</span>
+            </div>
+          </div>
+        </div>
       </div>
     </main>
 
@@ -261,6 +296,28 @@
             <option value="piston-gcc10" selected>Piston Cloud (GCC 10.2 / C++20) — Instant, Zero Setup</option>
             <option value="local">Local Node Server (localhost:3000 / g++)</option>
           </select>
+        </div>
+
+        <div class="form-group sound-settings-box">
+          <label class="checkbox-label">
+            <input type="checkbox" id="modalSoundEnabled" checked>
+            <span>Audio Feedback (Accepted & Not Accepted Sounds)</span>
+          </label>
+          <div class="volume-slider-row" id="volumeRow">
+            <div class="volume-label-row">
+              <span class="sub-label">Volume:</span>
+              <span class="volume-val" id="volumePercent">35%</span>
+            </div>
+            <input type="range" id="modalSoundVolume" min="0" max="100" value="35" class="volume-range">
+          </div>
+          <div class="sound-test-actions">
+            <button type="button" id="testAcceptedSoundBtn" class="btn btn-xs btn-sound-test test-ac" title="Listen to Accepted chime">
+              <span>▶ Test Accepted (AC)</span>
+            </button>
+            <button type="button" id="testNotAcceptedSoundBtn" class="btn btn-xs btn-sound-test test-wa" title="Listen to Not Accepted tone">
+              <span>▶ Test Not Accepted (WA)</span>
+            </button>
+          </div>
         </div>
       </div>
       <div class="modal-footer">

@@ -20,8 +20,488 @@
     githubToken: '',
     githubRepo: 'yasir-newb/tophhub',
     githubBranch: 'main',
-    compilerEngine: 'piston-gcc10'
+    compilerEngine: 'piston-gcc10',
+    soundEnabled: true,
+    soundVolume: 0.35
   };
+
+  // Zero-Dependency Native Web Audio API Sound Engine
+  const SoundManager = (function () {
+    let audioCtx = null;
+    let enabled = true;
+    let volume = 0.35;
+
+    function initCtx() {
+      if (!audioCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (AudioContext) {
+          audioCtx = new AudioContext();
+        }
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    // Accepted (AC) Chime: Ascending jubilant 4-note arpeggio with sparkling decay
+    function playAccepted() {
+      if (!enabled) return;
+      try {
+        initCtx();
+        if (!audioCtx) return;
+        const now = audioCtx.currentTime;
+
+        // E5 (659Hz), G#5 (831Hz), B5 (988Hz), E6 (1319Hz)
+        const notes = [
+          { freq: 659.25, time: 0.00, dur: 0.25, gain: 0.35 },
+          { freq: 830.61, time: 0.07, dur: 0.25, gain: 0.40 },
+          { freq: 987.77, time: 0.14, dur: 0.30, gain: 0.45 },
+          { freq: 1318.51, time: 0.21, dur: 0.52, gain: 0.55 }
+        ];
+
+        notes.forEach(({ freq, time, dur, gain: noteGain }) => {
+          const osc = audioCtx.createOscillator();
+          const gainNode = audioCtx.createGain();
+
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, now + time);
+
+          const peak = volume * noteGain;
+          gainNode.gain.setValueAtTime(0.0001, now + time);
+          gainNode.gain.exponentialRampToValueAtTime(peak, now + time + 0.015);
+          gainNode.gain.exponentialRampToValueAtTime(0.0001, now + time + dur);
+
+          osc.connect(gainNode);
+          gainNode.connect(audioCtx.destination);
+
+          osc.start(now + time);
+          osc.stop(now + time + dur);
+        });
+      } catch (err) {
+        console.warn('[SoundManager] playAccepted failed:', err);
+      }
+    }
+
+    // Not Accepted (WA/Error) Tone: Warm descending 2-note minor tone
+    function playNotAccepted() {
+      if (!enabled) return;
+      try {
+        initCtx();
+        if (!audioCtx) return;
+        const now = audioCtx.currentTime;
+
+        // Two-tone descending buzzer/chime: 360Hz -> 240Hz with gentle lowpass warmth
+        const tones = [
+          { freq: 360.0, time: 0.00, dur: 0.22, gain: 0.45 },
+          { freq: 240.0, time: 0.12, dur: 0.38, gain: 0.50 }
+        ];
+
+        tones.forEach(({ freq, time, dur, gain: toneGain }) => {
+          const osc = audioCtx.createOscillator();
+          const gainNode = audioCtx.createGain();
+          const filter = audioCtx.createBiquadFilter();
+
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(freq, now + time);
+
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(750, now + time);
+          filter.Q.setValueAtTime(2.5, now + time);
+
+          const peak = volume * toneGain;
+          gainNode.gain.setValueAtTime(0.0001, now + time);
+          gainNode.gain.exponentialRampToValueAtTime(peak, now + time + 0.02);
+          gainNode.gain.exponentialRampToValueAtTime(0.0001, now + time + dur);
+
+          osc.connect(filter);
+          filter.connect(gainNode);
+          gainNode.connect(audioCtx.destination);
+
+          osc.start(now + time);
+          osc.stop(now + time + dur);
+        });
+      } catch (err) {
+        console.warn('[SoundManager] playNotAccepted failed:', err);
+      }
+    }
+
+    // Snippet Accepted / Insert Sound: Subtle tactile tick
+    function playSnippetAccepted() {
+      if (!enabled) return;
+      try {
+        initCtx();
+        if (!audioCtx) return;
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(1200, now);
+        osc.frequency.exponentialRampToValueAtTime(450, now + 0.035);
+
+        gainNode.gain.setValueAtTime(0.0001, now);
+        gainNode.gain.exponentialRampToValueAtTime(volume * 0.3, now + 0.005);
+        gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.035);
+
+        osc.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+
+        osc.start(now);
+        osc.stop(now + 0.035);
+      } catch (err) {}
+    }
+
+    return {
+      init: initCtx,
+      playAccepted,
+      playNotAccepted,
+      playSnippetAccepted,
+      setEnabled: (v) => { enabled = !!v; },
+      isEnabled: () => enabled,
+      setVolume: (v) => { volume = Math.max(0, Math.min(1, v)); },
+      getVolume: () => volume
+    };
+  })();
+
+  // Comprehensive C++ Competitive Programming Snippets & Autocomplete Catalog
+  const CP_SNIPPETS = [
+    {
+      prefix: 'for',
+      label: 'for (int i = 0; i < n; i++)',
+      category: 'cp',
+      desc: 'Standard ascending loop from 0 to n - 1',
+      template: 'for (int ${1:i} = 0; ${1:i} < ${2:n}; ${1:i}++) {\n    ${0}\n}',
+      preview: 'for (int i = 0; i < n; i++) {\n    \n}'
+    },
+    {
+      prefix: 'forr',
+      label: 'for (int i = n - 1; i >= 0; i--)',
+      category: 'cp',
+      desc: 'Reverse loop from n - 1 down to 0',
+      template: 'for (int ${1:i} = ${2:n} - 1; ${1:i} >= 0; ${1:i}--) {\n    ${0}\n}',
+      preview: 'for (int i = n - 1; i >= 0; i--) {\n    \n}'
+    },
+    {
+      prefix: 'fore',
+      label: 'for (auto& x : v)',
+      category: 'cp',
+      desc: 'Range-based for loop over elements',
+      template: 'for (auto& ${1:x} : ${2:v}) {\n    ${0}\n}',
+      preview: 'for (auto& x : v) {\n    \n}'
+    },
+    {
+      prefix: 'forij',
+      label: 'Nested 2D for loop (i, j)',
+      category: 'cp',
+      desc: 'Double loop for 2D grids and matrices',
+      template: 'for (int ${1:i} = 0; ${1:i} < ${2:n}; ${1:i}++) {\n    for (int ${3:j} = 0; ${3:j} < ${4:m}; ${3:j}++) {\n        ${0}\n    }\n}',
+      preview: 'for (int i = 0; i < n; i++) {\n    for (int j = 0; j < m; j++) {\n        \n    }\n}'
+    },
+    {
+      prefix: 'cin',
+      label: 'cin >> ...',
+      category: 'cp',
+      desc: 'Read standard input variable',
+      template: 'cin >> ${1:x};${0}',
+      preview: 'cin >> x;'
+    },
+    {
+      prefix: 'cout',
+      label: 'cout << ... << "\\n"',
+      category: 'cp',
+      desc: 'Print to standard output with newline',
+      template: 'cout << ${1:ans} << "\\n";${0}',
+      preview: 'cout << ans << "\\n";'
+    },
+    {
+      prefix: 'cinv',
+      label: 'cin >> a[i] (Vector Input)',
+      category: 'cp',
+      desc: 'Loop to read an n-element vector from stdin',
+      template: 'for (int i = 0; i < ${1:n}; i++) {\n    cin >> ${2:a}[i];\n}${0}',
+      preview: 'for (int i = 0; i < n; i++) {\n    cin >> a[i];\n}'
+    },
+    {
+      prefix: 'coutv',
+      label: 'cout << a[i] (Vector Output)',
+      category: 'cp',
+      desc: 'Print vector elements separated by spaces',
+      template: 'for (int i = 0; i < ${1:n}; i++) {\n    cout << ${2:a}[i] << (i + 1 == ${1:n} ? "\\n" : " ");\n}${0}',
+      preview: 'for (int i = 0; i < n; i++) {\n    cout << a[i] << (i + 1 == n ? "\\n" : " ");\n}'
+    },
+    {
+      prefix: 'while',
+      label: 'while (t--)',
+      category: 'cp',
+      desc: 'Standard competitive programming testcase loop',
+      template: 'while (${1:t--}) {\n    ${0}\n}',
+      preview: 'while (t--) {\n    \n}'
+    },
+    {
+      prefix: 'if',
+      label: 'if (condition)',
+      category: 'cp',
+      desc: 'Conditional statement block',
+      template: 'if (${1:condition}) {\n    ${0}\n}',
+      preview: 'if (condition) {\n    \n}'
+    },
+    {
+      prefix: 'ifelse',
+      label: 'if (cond) { ... } else { ... }',
+      category: 'cp',
+      desc: 'If-Else conditional branch',
+      template: 'if (${1:condition}) {\n    ${2}\n} else {\n    ${0}\n}',
+      preview: 'if (condition) {\n    \n} else {\n    \n}'
+    },
+    {
+      prefix: 'fastio',
+      label: 'Fast I/O Setup',
+      category: 'cp',
+      desc: 'Accelerate standard I/O streams for CP',
+      template: 'ios_base::sync_with_stdio(false);\ncin.tie(NULL);${0}',
+      preview: 'ios_base::sync_with_stdio(false);\ncin.tie(NULL);'
+    },
+    {
+      prefix: 'vec',
+      label: 'vector<int> v(n)',
+      category: 'type',
+      desc: 'Standard dynamic vector container',
+      template: 'vector<${1:int}> ${2:v}(${3:n});${0}',
+      preview: 'vector<int> v(n);'
+    },
+    {
+      prefix: 'vvi',
+      label: 'vector<vector<int>> adj(n)',
+      category: 'type',
+      desc: '2D vector / Graph adjacency list',
+      template: 'vector<vector<${1:int}>> ${2:adj}(${3:n});${0}',
+      preview: 'vector<vector<int>> adj(n);'
+    },
+    {
+      prefix: 'map',
+      label: 'map<key, val> mp',
+      category: 'type',
+      desc: 'Ordered key-value map (Red-Black tree, O(log N))',
+      template: 'map<${1:int}, ${2:int}> ${3:mp};${0}',
+      preview: 'map<int, int> mp;'
+    },
+    {
+      prefix: 'umap',
+      label: 'unordered_map<key, val> mp',
+      category: 'type',
+      desc: 'Hash table map with O(1) average lookup',
+      template: 'unordered_map<${1:int}, ${2:int}> ${3:mp};${0}',
+      preview: 'unordered_map<int, int> mp;'
+    },
+    {
+      prefix: 'set',
+      label: 'set<int> st',
+      category: 'type',
+      desc: 'Ordered unique element container',
+      template: 'set<${1:int}> ${2:st};${0}',
+      preview: 'set<int> st;'
+    },
+    {
+      prefix: 'uset',
+      label: 'unordered_set<int> st',
+      category: 'type',
+      desc: 'Hash set with O(1) average lookup',
+      template: 'unordered_set<${1:int}> ${2:st};${0}',
+      preview: 'unordered_set<int> st;'
+    },
+    {
+      prefix: 'pair',
+      label: 'pair<int, int> p',
+      category: 'type',
+      desc: 'Pair container of two types',
+      template: 'pair<${1:int}, ${2:int}> ${3:p};${0}',
+      preview: 'pair<int, int> p;'
+    },
+    {
+      prefix: 'pq',
+      label: 'priority_queue<int> pq (Max-Heap)',
+      category: 'type',
+      desc: 'Max priority queue',
+      template: 'priority_queue<${1:int}> ${2:pq};${0}',
+      preview: 'priority_queue<int> pq;'
+    },
+    {
+      prefix: 'pqmin',
+      label: 'priority_queue min-heap',
+      category: 'type',
+      desc: 'Min priority queue (smallest element on top)',
+      template: 'priority_queue<${1:int}, vector<${1:int}>, greater<${1:int}>> ${2:pq};${0}',
+      preview: 'priority_queue<int, vector<int>, greater<int>> pq;'
+    },
+    {
+      prefix: 'sort',
+      label: 'sort(v.begin(), v.end())',
+      category: 'fn',
+      desc: 'Sort container elements in non-decreasing order',
+      template: 'sort(${1:v}.begin(), ${1:v}.end());${0}',
+      preview: 'sort(v.begin(), v.end());'
+    },
+    {
+      prefix: 'sortd',
+      label: 'sort(v.rbegin(), v.rend())',
+      category: 'fn',
+      desc: 'Sort container elements in descending order',
+      template: 'sort(${1:v}.rbegin(), ${1:v}.rend());${0}',
+      preview: 'sort(v.rbegin(), v.rend());'
+    },
+    {
+      prefix: 'reverse',
+      label: 'reverse(v.begin(), v.end())',
+      category: 'fn',
+      desc: 'Reverse range of elements in place',
+      template: 'reverse(${1:v}.begin(), ${1:v}.end());${0}',
+      preview: 'reverse(v.begin(), v.end());'
+    },
+    {
+      prefix: 'all',
+      label: 'v.begin(), v.end()',
+      category: 'cp',
+      desc: 'Convenient container range expression',
+      template: '${1:v}.begin(), ${1:v}.end()${0}',
+      preview: 'v.begin(), v.end()'
+    },
+    {
+      prefix: 'pb',
+      label: 'v.push_back(x)',
+      category: 'fn',
+      desc: 'Append element to vector/deque',
+      template: 'push_back(${1:x});${0}',
+      preview: 'push_back(x);'
+    },
+    {
+      prefix: 'gcd',
+      label: 'gcd(a, b) Function',
+      category: 'fn',
+      desc: 'Greatest common divisor using Euclidean algorithm',
+      template: 'long long gcd(long long a, long long b) {\n    return b ? gcd(b, a % b) : a;\n}\n${0}',
+      preview: 'long long gcd(long long a, long long b) {\n    return b ? gcd(b, a % b) : a;\n}'
+    },
+    {
+      prefix: 'lcm',
+      label: 'lcm(a, b) Function',
+      category: 'fn',
+      desc: 'Least common multiple via GCD',
+      template: 'long long lcm(long long a, long long b) {\n    return (a / gcd(a, b)) * b;\n}\n${0}',
+      preview: 'long long lcm(long long a, long long b) {\n    return (a / gcd(a, b)) * b;\n}'
+    },
+    {
+      prefix: 'binpow',
+      label: 'binpow(a, b, mod) - Binary Exponentiation',
+      category: 'cp',
+      desc: 'O(log B) modular exponentiation algorithm',
+      template: 'long long binpow(long long a, long long b, long long m = 1e9 + 7) {\n    a %= m;\n    long long res = 1;\n    while (b > 0) {\n        if (b & 1) res = res * a % m;\n        a = a * a % m;\n        b >>= 1;\n    }\n    return res;\n}\n${0}',
+      preview: 'long long binpow(long long a, long long b, long long m = 1e9 + 7) {\n    // O(log B) Fast Modular Power\n}'
+    },
+    {
+      prefix: 'sieve',
+      label: 'sieve() - Prime Sieve of Eratosthenes',
+      category: 'cp',
+      desc: 'Generate all primes up to 10^6 in O(N log log N)',
+      template: 'const int MAXP = 1e6 + 5;\nvector<bool> is_prime(MAXP, true);\nvector<int> primes;\nvoid sieve() {\n    is_prime[0] = is_prime[1] = false;\n    for (int p = 2; p * p < MAXP; p++) {\n        if (is_prime[p]) {\n            for (int i = p * p; i < MAXP; i += p) is_prime[i] = false;\n        }\n    }\n    for (int p = 2; p < MAXP; p++) {\n        if (is_prime[p]) primes.push_back(p);\n    }\n}\n${0}',
+      preview: 'const int MAXP = 1e6 + 5;\nvector<bool> is_prime(MAXP, true);\nvector<int> primes;\nvoid sieve() {\n    // Prime Sieve Implementation\n}'
+    },
+    {
+      prefix: 'dfs',
+      label: 'dfs(u, p) - Graph Depth First Search',
+      category: 'cp',
+      desc: 'Standard recursive DFS traversal template',
+      template: 'void dfs(int u, int p = -1) {\n    vis[u] = true;\n    for (int v : adj[u]) {\n        if (v != p && !vis[v]) {\n            dfs(v, u);\n        }\n    }\n}\n${0}',
+      preview: 'void dfs(int u, int p = -1) {\n    vis[u] = true;\n    for (int v : adj[u]) if (v != p && !vis[v]) dfs(v, u);\n}'
+    },
+    {
+      prefix: 'bfs',
+      label: 'bfs(src) - Breadth First Search',
+      category: 'cp',
+      desc: 'Standard queue-based BFS traversal template',
+      template: 'void bfs(int src) {\n    queue<int> q;\n    q.push(src);\n    vis[src] = true;\n    while (!q.empty()) {\n        int u = q.front();\n        q.pop();\n        for (int v : adj[u]) {\n            if (!vis[v]) {\n                vis[v] = true;\n                q.push(v);\n            }\n        }\n    }\n}\n${0}',
+      preview: 'void bfs(int src) {\n    queue<int> q;\n    q.push(src); vis[src] = true;\n    while (!q.empty()) { ... }\n}'
+    },
+    {
+      prefix: 'dsu',
+      label: 'DSU - Disjoint Set Union',
+      category: 'cp',
+      desc: 'Union-Find with path compression and union by rank',
+      template: 'struct DSU {\n    vector<int> parent, size;\n    DSU(int n) {\n        parent.resize(n + 1);\n        iota(parent.begin(), parent.end(), 0);\n        size.assign(n + 1, 1);\n    }\n    int find(int i) {\n        return (parent[i] == i) ? i : (parent[i] = find(parent[i]));\n    }\n    bool unite(int i, int j) {\n        int root_i = find(i), root_j = find(j);\n        if (root_i != root_j) {\n            if (size[root_i] < size[root_j]) swap(root_i, root_j);\n            parent[root_j] = root_i;\n            size[root_i] += size[root_j];\n            return true;\n        }\n        return false;\n    }\n};\n${0}',
+      preview: 'struct DSU {\n    vector<int> parent, size;\n    DSU(int n) { ... }\n    int find(int i) { ... }\n    bool unite(int i, int j) { ... }\n};'
+    },
+    {
+      prefix: 'prefix',
+      label: 'Prefix Sum Array',
+      category: 'cp',
+      desc: 'Compute prefix sums for O(1) range sum queries',
+      template: 'vector<long long> pref(${1:n} + 1, 0);\nfor (int i = 0; i < ${1:n}; i++) {\n    pref[i + 1] = pref[i] + ${2:a}[i];\n}${0}',
+      preview: 'vector<long long> pref(n + 1, 0);\nfor (int i = 0; i < n; i++) pref[i + 1] = pref[i] + a[i];'
+    },
+    {
+      prefix: 'yes',
+      label: 'cout << "YES\\n"',
+      category: 'cp',
+      desc: 'Output YES to stdout',
+      template: 'cout << "YES\\n";${0}',
+      preview: 'cout << "YES\\n";'
+    },
+    {
+      prefix: 'no',
+      label: 'cout << "NO\\n"',
+      category: 'cp',
+      desc: 'Output NO to stdout',
+      template: 'cout << "NO\\n";${0}',
+      preview: 'cout << "NO\\n";'
+    },
+    {
+      prefix: 'solve',
+      label: 'void solve()',
+      category: 'cp',
+      desc: 'Standard competitive programming solve function',
+      template: 'void solve() {\n    ${0}\n}',
+      preview: 'void solve() {\n    \n}'
+    },
+    {
+      prefix: 'll',
+      label: 'long long',
+      category: 'type',
+      desc: '64-bit integer type',
+      template: 'long long ${1:x};${0}',
+      preview: 'long long x;'
+    },
+    {
+      prefix: 'string',
+      label: 'string s',
+      category: 'type',
+      desc: 'Standard C++ string type',
+      template: 'string ${1:s};${0}',
+      preview: 'string s;'
+    },
+    {
+      prefix: 'double',
+      label: 'double',
+      category: 'type',
+      desc: 'Double precision floating point type',
+      template: 'double ${1:x};${0}',
+      preview: 'double x;'
+    },
+    {
+      prefix: 'auto',
+      label: 'auto',
+      category: 'kw',
+      desc: 'Automatic type deduction',
+      template: 'auto ${1:x} = ${0};',
+      preview: 'auto x = ...;'
+    },
+    {
+      prefix: 'return',
+      label: 'return',
+      category: 'kw',
+      desc: 'Return statement',
+      template: 'return ${0};',
+      preview: 'return;'
+    }
+  ];
 
   // Curated catalog of Toph.co problems with descriptions and sample test cases
   const TOPH_CATALOG = {
@@ -197,11 +677,34 @@ int main() {
 
   // DOM Elements
   const codeEditor = document.getElementById('codeEditor');
+  const editorContainer = document.getElementById('editorContainer');
   const lineNumbers = document.getElementById('lineNumbers');
   const cursorPosition = document.getElementById('cursorPosition');
   const dirtyIndicator = document.getElementById('dirtyIndicator');
   const resetTemplateBtn = document.getElementById('resetTemplateBtn');
   const formatCodeBtn = document.getElementById('formatCodeBtn');
+  const snippetsBtn = document.getElementById('snippetsBtn');
+  const snippetsMenu = document.getElementById('snippetsMenu');
+  const snippetsMenuList = document.getElementById('snippetsMenuList');
+
+  // Dynamic Suggestion Box Elements
+  const suggestionBox = document.getElementById('suggestionBox');
+  const suggestionList = document.getElementById('suggestionList');
+  const suggestionPreview = document.getElementById('suggestionPreview');
+  const previewTitle = document.getElementById('previewTitle');
+  const previewBadge = document.getElementById('previewBadge');
+  const previewDesc = document.getElementById('previewDesc');
+  const previewCode = document.getElementById('previewCode');
+
+  // Sound Elements
+  const soundToggleBtn = document.getElementById('soundToggleBtn');
+  const soundIcon = document.getElementById('soundIcon');
+  const soundLabel = document.getElementById('soundLabel');
+  const modalSoundEnabled = document.getElementById('modalSoundEnabled');
+  const modalSoundVolume = document.getElementById('modalSoundVolume');
+  const volumePercent = document.getElementById('volumePercent');
+  const testAcceptedSoundBtn = document.getElementById('testAcceptedSoundBtn');
+  const testNotAcceptedSoundBtn = document.getElementById('testNotAcceptedSoundBtn');
 
   const problemInput = document.getElementById('problemInput');
   const fetchProblemBtn = document.getElementById('fetchProblemBtn');
@@ -244,14 +747,27 @@ int main() {
   const modalCompiler = document.getElementById('modalCompiler');
   const toastContainer = document.getElementById('toastContainer');
 
+  // Suggestion State
+  const suggestionState = {
+    isOpen: false,
+    items: [],
+    selectedIndex: 0,
+    activeWord: '',
+    start: 0,
+    end: 0,
+    charWidth: 7.85
+  };
+
   // Initialization
   init();
 
   function init() {
+    initMeasure();
     loadSettings();
     updateLineNumbers();
     renderCaseTabs();
     loadActiveCase();
+    renderQuickSnippetsMenu();
     attachEventListeners();
 
     // Check for problem parameter in URL (e.g. ?problem=copycat or ?slug=copycat)
@@ -276,22 +792,76 @@ int main() {
     }
   }
 
+  function initMeasure() {
+    try {
+      const span = document.createElement('span');
+      span.style.fontFamily = 'var(--font-mono)';
+      span.style.fontSize = '13px';
+      span.style.visibility = 'hidden';
+      span.style.position = 'absolute';
+      span.textContent = 'WWWWWWWWWW';
+      document.body.appendChild(span);
+      suggestionState.charWidth = (span.getBoundingClientRect().width / 10) || 7.85;
+      span.remove();
+    } catch (e) {
+      suggestionState.charWidth = 7.85;
+    }
+  }
+
   function attachEventListeners() {
-    // Editor Input & Line Numbers
+    // Editor Input & Line Numbers + Autocomplete
     codeEditor.addEventListener('input', () => {
       updateLineNumbers();
       dirtyIndicator.classList.add('dirty');
+
+      // Auto-suggest on typing
+      const { word } = getWordBeforeCursor();
+      if (word && word.length >= 1) {
+        showSuggestions(false);
+      } else {
+        hideSuggestions();
+      }
     });
 
     codeEditor.addEventListener('scroll', () => {
       lineNumbers.scrollTop = codeEditor.scrollTop;
+      if (suggestionState.isOpen) {
+        updateSuggestionPosition();
+      }
     });
 
     codeEditor.addEventListener('keyup', updateCursorStats);
-    codeEditor.addEventListener('click', updateCursorStats);
+    codeEditor.addEventListener('click', () => {
+      updateCursorStats();
+      hideSuggestions();
+    });
 
     // Smart Tab, Auto-Indent, & Auto-Pairing in Editor
     codeEditor.addEventListener('keydown', handleEditorShortcuts);
+
+    // Quick Snippets Menu in Editor Header
+    if (snippetsBtn && snippetsMenu) {
+      snippetsBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        snippetsMenu.classList.toggle('hidden');
+      });
+    }
+
+    // Audio Feedback Quick Toggle
+    if (soundToggleBtn) {
+      soundToggleBtn.addEventListener('click', () => {
+        state.soundEnabled = !state.soundEnabled;
+        SoundManager.setEnabled(state.soundEnabled);
+        updateSoundUI();
+        saveSettings();
+        if (state.soundEnabled) {
+          SoundManager.playAccepted();
+          showToast('🔊 Audio feedback enabled (Accepted / WA sounds)', 'info');
+        } else {
+          showToast('🔇 Audio feedback muted', 'info');
+        }
+      });
+    }
 
     // Run & Test Actions
     runCodeBtn.addEventListener('click', () => runActiveCase());
@@ -342,12 +912,53 @@ int main() {
       modalRepo.value = state.githubRepo;
       modalBranch.value = state.githubBranch;
       modalCompiler.value = state.compilerEngine;
+      if (modalSoundEnabled) modalSoundEnabled.checked = state.soundEnabled;
+      if (modalSoundVolume) {
+        modalSoundVolume.value = Math.round(state.soundVolume * 100);
+        if (volumePercent) volumePercent.textContent = `${modalSoundVolume.value}%`;
+      }
       settingsModal.classList.remove('hidden');
     });
+
+    // Sound Test Buttons in Settings
+    if (testAcceptedSoundBtn) {
+      testAcceptedSoundBtn.addEventListener('click', () => {
+        SoundManager.playAccepted();
+      });
+    }
+    if (testNotAcceptedSoundBtn) {
+      testNotAcceptedSoundBtn.addEventListener('click', () => {
+        SoundManager.playNotAccepted();
+      });
+    }
+    if (modalSoundVolume) {
+      modalSoundVolume.addEventListener('input', () => {
+        const val = parseInt(modalSoundVolume.value, 10);
+        state.soundVolume = val / 100;
+        SoundManager.setVolume(state.soundVolume);
+        if (volumePercent) volumePercent.textContent = `${val}%`;
+      });
+    }
+    if (modalSoundEnabled) {
+      modalSoundEnabled.addEventListener('change', () => {
+        state.soundEnabled = modalSoundEnabled.checked;
+        SoundManager.setEnabled(state.soundEnabled);
+      });
+    }
 
     closeModalBtn.addEventListener('click', () => settingsModal.classList.add('hidden'));
     settingsModal.addEventListener('click', (e) => {
       if (e.target === settingsModal) settingsModal.classList.add('hidden');
+    });
+
+    // Dismiss dropdowns when clicking outside
+    document.addEventListener('click', (e) => {
+      if (snippetsMenu && !snippetsMenu.contains(e.target) && e.target !== snippetsBtn && !snippetsBtn.contains(e.target)) {
+        snippetsMenu.classList.add('hidden');
+      }
+      if (suggestionBox && !suggestionBox.contains(e.target) && e.target !== codeEditor) {
+        hideSuggestions();
+      }
     });
 
     saveSettingsBtn.addEventListener('click', () => {
@@ -355,14 +966,54 @@ int main() {
       state.githubRepo = modalRepo.value.trim();
       state.githubBranch = modalBranch.value.trim() || 'main';
       state.compilerEngine = modalCompiler.value;
+      if (modalSoundEnabled) state.soundEnabled = modalSoundEnabled.checked;
+      if (modalSoundVolume) state.soundVolume = parseInt(modalSoundVolume.value, 10) / 100;
+      SoundManager.setEnabled(state.soundEnabled);
+      SoundManager.setVolume(state.soundVolume);
+      updateSoundUI();
       saveSettings();
       settingsModal.classList.add('hidden');
       showToast('Settings saved successfully!', 'success');
     });
   }
 
-  // Handle Editor Shortcuts (Ctrl+Enter to Run, Tab for 4 spaces, Auto-Brackets)
+  // Handle Editor Shortcuts (Ctrl+Enter to Run, Tab for 4 spaces, Auto-Brackets, Suggestions)
   function handleEditorShortcuts(e) {
+    // If suggestion box is open, handle autocomplete keys
+    if (suggestionState.isOpen) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        suggestionState.selectedIndex = (suggestionState.selectedIndex + 1) % suggestionState.items.length;
+        updateActiveSuggestionItem();
+        renderSuggestionPreview();
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        suggestionState.selectedIndex = (suggestionState.selectedIndex - 1 + suggestionState.items.length) % suggestionState.items.length;
+        updateActiveSuggestionItem();
+        renderSuggestionPreview();
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        insertSelectedSuggestion();
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        hideSuggestions();
+        return;
+      }
+    }
+
+    // Ctrl + Space to trigger code suggestions manually
+    if ((e.ctrlKey || e.metaKey) && e.key === ' ') {
+      e.preventDefault();
+      showSuggestions(true);
+      return;
+    }
+
     // Ctrl + Enter to run code
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault();
@@ -419,6 +1070,287 @@ int main() {
     const currentLine = lines.length;
     const currentCol = lines[lines.length - 1].length + 1;
     cursorPosition.textContent = `Ln ${currentLine}, Col ${currentCol}`;
+  }
+
+  // --- Code Suggestion & Snippet Autocomplete Logic ---
+  function getWordBeforeCursor() {
+    const text = codeEditor.value;
+    const pos = codeEditor.selectionStart;
+    let start = pos;
+    while (start > 0 && /[a-zA-Z0-9_#]/.test(text[start - 1])) {
+      start--;
+    }
+    let end = pos;
+    while (end < text.length && /[a-zA-Z0-9_#]/.test(text[end])) {
+      end++;
+    }
+    const word = text.substring(start, pos);
+    return { word, start, end, pos };
+  }
+
+  function showSuggestions(forceAll = false) {
+    const { word, start, end } = getWordBeforeCursor();
+    suggestionState.start = start;
+    suggestionState.end = end;
+    suggestionState.activeWord = word;
+
+    let matches = [];
+    if (forceAll || !word) {
+      matches = CP_SNIPPETS.slice();
+    } else {
+      const q = word.toLowerCase();
+      matches = CP_SNIPPETS.filter(item => {
+        return item.prefix.toLowerCase().startsWith(q) ||
+               item.prefix.toLowerCase().includes(q) ||
+               item.label.toLowerCase().includes(q);
+      }).sort((a, b) => {
+        const aStarts = a.prefix.toLowerCase().startsWith(q);
+        const bStarts = b.prefix.toLowerCase().startsWith(q);
+        if (aStarts && !bStarts) return -1;
+        if (!aStarts && bStarts) return 1;
+        return a.prefix.localeCompare(b.prefix);
+      });
+    }
+
+    if (matches.length === 0) {
+      hideSuggestions();
+      return;
+    }
+
+    suggestionState.items = matches;
+    suggestionState.selectedIndex = 0;
+    suggestionState.isOpen = true;
+
+    renderSuggestionList();
+    renderSuggestionPreview();
+    updateSuggestionPosition();
+    suggestionBox.classList.remove('hidden');
+  }
+
+  function hideSuggestions() {
+    suggestionState.isOpen = false;
+    if (suggestionBox) suggestionBox.classList.add('hidden');
+  }
+
+  function renderSuggestionList() {
+    if (!suggestionList) return;
+    suggestionList.innerHTML = '';
+    const q = (suggestionState.activeWord || '').toLowerCase();
+
+    suggestionState.items.forEach((item, index) => {
+      const div = document.createElement('div');
+      div.className = `suggestion-item ${index === suggestionState.selectedIndex ? 'active' : ''}`;
+      
+      const badge = document.createElement('span');
+      badge.className = `sug-badge cat-${item.category}`;
+      badge.textContent = item.category.toUpperCase();
+
+      const label = document.createElement('span');
+      label.className = 'sug-name';
+      
+      if (q && item.prefix.toLowerCase().includes(q)) {
+        const idx = item.prefix.toLowerCase().indexOf(q);
+        label.innerHTML = `${escapeHtml(item.prefix.substring(0, idx))}<span class="hl">${escapeHtml(item.prefix.substring(idx, idx + q.length))}</span>${escapeHtml(item.prefix.substring(idx + q.length))}`;
+      } else {
+        label.textContent = item.prefix;
+      }
+
+      div.appendChild(badge);
+      div.appendChild(label);
+
+      div.addEventListener('mouseenter', () => {
+        suggestionState.selectedIndex = index;
+        updateActiveSuggestionItem();
+        renderSuggestionPreview();
+      });
+
+      div.addEventListener('click', (e) => {
+        e.stopPropagation();
+        insertSelectedSuggestion();
+      });
+
+      suggestionList.appendChild(div);
+    });
+  }
+
+  function escapeHtml(str) {
+    return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function updateActiveSuggestionItem() {
+    if (!suggestionList) return;
+    const items = suggestionList.querySelectorAll('.suggestion-item');
+    items.forEach((it, idx) => {
+      if (idx === suggestionState.selectedIndex) {
+        it.classList.add('active');
+        it.scrollIntoView({ block: 'nearest' });
+      } else {
+        it.classList.remove('active');
+      }
+    });
+  }
+
+  function renderSuggestionPreview() {
+    const item = suggestionState.items[suggestionState.selectedIndex];
+    if (!item) return;
+
+    if (previewTitle) previewTitle.textContent = item.label;
+    if (previewBadge) {
+      previewBadge.textContent = item.category.toUpperCase();
+      previewBadge.className = `preview-badge sug-badge cat-${item.category}`;
+    }
+    if (previewDesc) previewDesc.textContent = item.desc;
+    if (previewCode) {
+      previewCode.textContent = item.preview || item.template.replace(/\$\{\d+:([^}]+)\}/g, '$1').replace(/\$\{0\}|\|/g, '');
+    }
+  }
+
+  function updateSuggestionPosition() {
+    if (!editorContainer || !codeEditor || !suggestionBox) return;
+    const textBefore = codeEditor.value.substring(0, codeEditor.selectionStart);
+    const lines = textBefore.split('\n');
+    const lineIndex = lines.length - 1;
+    const colIndex = lines[lines.length - 1].length;
+
+    const lineHeight = 22;
+    const gutterWidth = 48;
+    const padLeft = 12;
+    const padTop = 12;
+
+    const editorRect = editorContainer.getBoundingClientRect();
+    const scrollTop = codeEditor.scrollTop;
+    const scrollLeft = codeEditor.scrollLeft;
+
+    let top = padTop + (lineIndex + 1) * lineHeight - scrollTop;
+    let left = gutterWidth + padLeft + (colIndex * suggestionState.charWidth) - scrollLeft;
+
+    const boxWidth = 520;
+    const boxHeight = 240;
+
+    if (left + boxWidth > editorRect.width - 16) {
+      left = Math.max(gutterWidth + 10, editorRect.width - boxWidth - 16);
+    }
+    if (top + boxHeight > editorRect.height - 16) {
+      top = Math.max(8, padTop + lineIndex * lineHeight - boxHeight - scrollTop);
+    }
+
+    suggestionBox.style.top = `${Math.max(0, top)}px`;
+    suggestionBox.style.left = `${Math.max(0, left)}px`;
+  }
+
+  function insertSelectedSuggestion() {
+    const item = suggestionState.items[suggestionState.selectedIndex];
+    if (!item) return;
+
+    const text = codeEditor.value;
+    const start = suggestionState.start;
+    const end = suggestionState.end;
+
+    const { cleanText, targetOffset, targetLength } = expandSnippetTemplate(item.template);
+
+    codeEditor.value = text.substring(0, start) + cleanText + text.substring(end);
+
+    const newCursorStart = start + targetOffset;
+    const newCursorEnd = newCursorStart + targetLength;
+    codeEditor.focus();
+    codeEditor.setSelectionRange(newCursorStart, newCursorEnd);
+
+    updateLineNumbers();
+    dirtyIndicator.classList.add('dirty');
+    hideSuggestions();
+    SoundManager.playSnippetAccepted();
+  }
+
+  function expandSnippetTemplate(template) {
+    let targetOffset = -1;
+    let targetLength = 0;
+
+    const firstPlaceholderMatch = template.match(/\$\{1:([^}]+)\}/);
+    const zeroMatch = template.match(/\$\{0\}|\|/);
+
+    let cleanText = template;
+
+    if (firstPlaceholderMatch) {
+      const full = firstPlaceholderMatch[0];
+      const val = firstPlaceholderMatch[1];
+      const idx = cleanText.indexOf(full);
+      cleanText = cleanText.replace(/\$\{1:[^}]+\}/g, val);
+      cleanText = cleanText.replace(/\$\{\d+:([^}]+)\}/g, '$1');
+      cleanText = cleanText.replace(/\$\{0\}|\|/g, '');
+      targetOffset = idx;
+      targetLength = val.length;
+    } else if (zeroMatch) {
+      const idx = cleanText.indexOf(zeroMatch[0]);
+      cleanText = cleanText.replace(/\$\{\d+:([^}]+)\}/g, '$1');
+      cleanText = cleanText.replace(/\$\{0\}|\|/g, '');
+      targetOffset = idx;
+      targetLength = 0;
+    } else {
+      cleanText = cleanText.replace(/\$\{\d+:([^}]+)\}/g, '$1');
+      cleanText = cleanText.replace(/\$\{0\}|\|/g, '');
+      targetOffset = cleanText.length;
+      targetLength = 0;
+    }
+
+    return { cleanText, targetOffset, targetLength };
+  }
+
+  function renderQuickSnippetsMenu() {
+    if (!snippetsMenuList) return;
+    snippetsMenuList.innerHTML = '';
+    const featured = CP_SNIPPETS.slice(0, 15);
+
+    featured.forEach(s => {
+      const div = document.createElement('div');
+      div.className = 'snippet-chip-item';
+      div.innerHTML = `
+        <span class="chip-title"><span class="sug-badge cat-${s.category}">${s.category.toUpperCase()}</span> ${s.prefix}</span>
+        <span class="chip-desc">${s.desc.length > 28 ? s.desc.substring(0, 26) + '...' : s.desc}</span>
+      `;
+      div.addEventListener('click', (e) => {
+        e.stopPropagation();
+        snippetsMenu.classList.add('hidden');
+        insertSnippetDirect(s);
+      });
+      snippetsMenuList.appendChild(div);
+    });
+  }
+
+  function insertSnippetDirect(snippet) {
+    const text = codeEditor.value;
+    const start = codeEditor.selectionStart;
+    const end = codeEditor.selectionEnd;
+    const { cleanText, targetOffset, targetLength } = expandSnippetTemplate(snippet.template);
+
+    codeEditor.value = text.substring(0, start) + cleanText + text.substring(end);
+    const newStart = start + targetOffset;
+    codeEditor.focus();
+    codeEditor.setSelectionRange(newStart, newStart + targetLength);
+    updateLineNumbers();
+    dirtyIndicator.classList.add('dirty');
+    SoundManager.playSnippetAccepted();
+    showToast(`⚡ Inserted snippet: ${snippet.prefix}`, 'info');
+  }
+
+  function updateSoundUI() {
+    if (soundToggleBtn && soundIcon && soundLabel) {
+      if (state.soundEnabled) {
+        soundToggleBtn.classList.remove('muted');
+        soundToggleBtn.classList.add('active');
+        soundIcon.textContent = '🔊';
+        soundLabel.textContent = 'Sound: ON';
+      } else {
+        soundToggleBtn.classList.remove('active');
+        soundToggleBtn.classList.add('muted');
+        soundIcon.textContent = '🔇';
+        soundLabel.textContent = 'Sound: OFF';
+      }
+    }
+    if (modalSoundEnabled) modalSoundEnabled.checked = state.soundEnabled;
+    if (modalSoundVolume) {
+      modalSoundVolume.value = Math.round(state.soundVolume * 100);
+      if (volumePercent) volumePercent.textContent = `${modalSoundVolume.value}%`;
+    }
   }
 
   // Test Case Tabs
@@ -506,6 +1438,7 @@ int main() {
 
       if (result.stderr && !result.stdout) {
         showToast('Compilation or Runtime warning/error.', 'error');
+        SoundManager.playNotAccepted();
       } else {
         showToast(`Case ${active.id} finished in ${active.time}`, 'success');
       }
@@ -513,6 +1446,7 @@ int main() {
       console.error(err);
       outputConsole.textContent = `Execution Error: ${err.message}\n\nPlease verify your internet connection for compiler API or check syntax.`;
       showToast(err.message, 'error');
+      SoundManager.playNotAccepted();
     } finally {
       setExecutingState(false);
     }
@@ -556,9 +1490,11 @@ int main() {
     if (passedCount === state.cases.length) {
       overallVerdict.innerHTML = `<span class="verdict-tag accepted">All ${passedCount} Passed (AC)</span>`;
       showToast(`🎉 All ${passedCount} test cases passed!`, 'success');
+      SoundManager.playAccepted();
     } else {
       overallVerdict.innerHTML = `<span class="verdict-tag failed">${passedCount}/${state.cases.length} Passed</span>`;
       showToast(`Failed on test case(s): ${failedCases.join(', ')}`, 'error');
+      SoundManager.playNotAccepted();
     }
   }
 
@@ -667,15 +1603,19 @@ int main() {
     diffBanner.classList.remove('hidden');
 
     if (isMatch) {
-      diffBanner.className = 'diff-banner pass';
+      diffBanner.className = 'diff-banner pass celebrate';
       diffIcon.textContent = '✅';
       diffTitle.textContent = 'Accepted (Sample Match)';
       diffDesc.textContent = 'Your program output matches the expected result!';
+      SoundManager.playAccepted();
+      setTimeout(() => diffBanner.classList.remove('celebrate'), 600);
     } else {
-      diffBanner.className = 'diff-banner fail';
+      diffBanner.className = 'diff-banner fail shake';
       diffIcon.textContent = '❌';
       diffTitle.textContent = 'Wrong Answer (Mismatch)';
       diffDesc.textContent = `Expected: "${testCase.expected.trim()}" | Got: "${testCase.stdout.trim()}"`;
+      SoundManager.playNotAccepted();
+      setTimeout(() => diffBanner.classList.remove('shake'), 400);
     }
   }
 
@@ -1070,17 +2010,28 @@ int main() {
         state.githubRepo = parsed.githubRepo || state.githubRepo;
         state.githubBranch = parsed.githubBranch || state.githubBranch;
         state.compilerEngine = parsed.compilerEngine || state.compilerEngine;
+        if (typeof parsed.soundEnabled !== 'undefined') state.soundEnabled = parsed.soundEnabled;
+        if (typeof parsed.soundVolume !== 'undefined') state.soundVolume = parsed.soundVolume;
       }
     } catch (e) {}
 
     // Also check chrome.storage if running inside extension context
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-      chrome.storage.local.get(['githubToken', 'repo', 'branch'], (data) => {
+      chrome.storage.local.get(['githubToken', 'repo', 'branch', 'soundEnabled', 'soundVolume'], (data) => {
         if (data.githubToken) state.githubToken = data.githubToken;
         if (data.repo) state.githubRepo = data.repo;
         if (data.branch) state.githubBranch = data.branch;
+        if (typeof data.soundEnabled !== 'undefined') state.soundEnabled = data.soundEnabled;
+        if (typeof data.soundVolume !== 'undefined') state.soundVolume = data.soundVolume;
+        SoundManager.setEnabled(state.soundEnabled);
+        SoundManager.setVolume(state.soundVolume);
+        updateSoundUI();
       });
     }
+
+    SoundManager.setEnabled(state.soundEnabled);
+    SoundManager.setVolume(state.soundVolume);
+    updateSoundUI();
   }
 
   function saveSettings() {
@@ -1089,9 +2040,18 @@ int main() {
         githubToken: state.githubToken,
         githubRepo: state.githubRepo,
         githubBranch: state.githubBranch,
-        compilerEngine: state.compilerEngine
+        compilerEngine: state.compilerEngine,
+        soundEnabled: state.soundEnabled,
+        soundVolume: state.soundVolume
       }));
     } catch (e) {}
+
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.set({
+        soundEnabled: state.soundEnabled,
+        soundVolume: state.soundVolume
+      });
+    }
   }
 
   // Toast Notification

@@ -43,23 +43,29 @@ When practicing on platforms like LeetCode or Codeforces, tools like *LeetHub* a
 
 Installing TophHub takes **less than 60 seconds** and requires no coding knowledge. It works on **Google Chrome**, **Microsoft Edge**, **Brave**, **Opera**, and any Chromium browser.
 
-### Option 1: Download the Pre-Packaged ZIP (Easiest)
-1. Download [**`tophhub-extension.zip`**](./tophhub-extension.zip) from this repository (or from the Releases section).
-2. Unzip / Extract the downloaded folder on your computer.
-3. Open your browser and go to:
+### Option 1: Download the Pre-Packaged ZIP (Recommended for Users)
+1. Download [**`tophhub-extension.zip`**](./tophhub-extension.zip) from this repository.
+2. **Extract / Unzip** the file on your computer:
+   - *Windows:* Right-click `tophhub-extension.zip` → click **Extract All...** → click **Extract**.
+   - *Mac / Linux:* Double-click to unzip.
+3. Open your browser and navigate to:
    - **Chrome / Brave:** `chrome://extensions`
    - **Edge:** `edge://extensions`
-4. Turn on the **Developer mode** switch (in the top-right corner).
+   - **Opera:** `opera://extensions`
+4. Turn **ON** the **Developer mode** toggle switch (in the top-right corner).
 5. Click the **Load unpacked** button (in the top-left corner).
-6. Select the extracted **`extension`** folder.
-7. 🎉 TophHub is now installed! Pin it to your browser toolbar for easy access.
+6. Select the unzipped folder (the folder named `tophhub-extension` or `extension` that contains `manifest.json`).
+7. 🎉 TophHub is now installed! Click the puzzle icon 🧩 and pin TophHub to your browser toolbar.
+
+> ⚠️ **Common Mistake to Avoid:**  
+> Do **NOT** drag and drop the `.zip` file into the browser! Chrome will reject it with `'CRX_HEADER_INVALID'`. You must **extract / unzip** the file first and use **Load unpacked**.
 
 ### Option 2: Clone with Git
 ```bash
 git clone https://github.com/yasir-newb/tophhub.git
 cd tophhub
 ```
-Then load the `extension/` directory via `chrome://extensions` -> **Load unpacked**.
+Then in `chrome://extensions`, enable **Developer mode** → click **Load unpacked** → select either the cloned `tophhub` folder or its `extension/` subfolder. Both work seamlessly!
 
 ---
 

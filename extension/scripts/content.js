@@ -3,6 +3,74 @@
 (function () {
   'use strict';
 
+  // Native Web Audio API Sound Generator for Toph.co Verdicts
+  const SoundManager = (function () {
+    let audioCtx = null;
+    function initCtx() {
+      if (!audioCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (AudioContext) audioCtx = new AudioContext();
+      }
+      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    }
+    function playAccepted() {
+      try {
+        initCtx();
+        if (!audioCtx) return;
+        const now = audioCtx.currentTime;
+        const notes = [
+          { freq: 659.25, time: 0.00, dur: 0.25, gain: 0.35 },
+          { freq: 830.61, time: 0.07, dur: 0.25, gain: 0.40 },
+          { freq: 987.77, time: 0.14, dur: 0.30, gain: 0.45 },
+          { freq: 1318.51, time: 0.21, dur: 0.52, gain: 0.55 }
+        ];
+        notes.forEach(({ freq, time, dur, gain: noteGain }) => {
+          const osc = audioCtx.createOscillator();
+          const g = audioCtx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, now + time);
+          g.gain.setValueAtTime(0.0001, now + time);
+          g.gain.exponentialRampToValueAtTime(0.35 * noteGain, now + time + 0.015);
+          g.gain.exponentialRampToValueAtTime(0.0001, now + time + dur);
+          osc.connect(g);
+          g.connect(audioCtx.destination);
+          osc.start(now + time);
+          osc.stop(now + time + dur);
+        });
+      } catch (e) {}
+    }
+    function playNotAccepted() {
+      try {
+        initCtx();
+        if (!audioCtx) return;
+        const now = audioCtx.currentTime;
+        const tones = [
+          { freq: 360.0, time: 0.00, dur: 0.22, gain: 0.45 },
+          { freq: 240.0, time: 0.12, dur: 0.38, gain: 0.50 }
+        ];
+        tones.forEach(({ freq, time, dur, gain: toneGain }) => {
+          const osc = audioCtx.createOscillator();
+          const g = audioCtx.createGain();
+          const filter = audioCtx.createBiquadFilter();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(freq, now + time);
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(750, now + time);
+          filter.Q.setValueAtTime(2.5, now + time);
+          g.gain.setValueAtTime(0.0001, now + time);
+          g.gain.exponentialRampToValueAtTime(0.35 * toneGain, now + time + 0.02);
+          g.gain.exponentialRampToValueAtTime(0.0001, now + time + dur);
+          osc.connect(filter);
+          filter.connect(g);
+          g.connect(audioCtx.destination);
+          osc.start(now + time);
+          osc.stop(now + time + dur);
+        });
+      } catch (e) {}
+    }
+    return { playAccepted, playNotAccepted };
+  })();
+
   // Route based on URL
   const currentPath = window.location.pathname;
 
@@ -43,6 +111,7 @@
     const isPending = isPendingVerdict(verdict);
 
     if (isAC) {
+      SoundManager.playAccepted();
       syncAttempted = true;
       clearInterval(checkInterval);
 
@@ -79,6 +148,7 @@
       console.log(`[TophHub] Submission ${submissionId} verdict: ${verdict} (judging...)`);
     } else if (isFailedVerdict(verdict)) {
       // Definitive non-accepted verdict (Wrong Answer, TLE, etc.)
+      SoundManager.playNotAccepted();
       clearInterval(checkInterval);
       console.log(`[TophHub] Submission ${submissionId} verdict: ${verdict} (not accepted)`);
     }
