@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TophHub C++ IDE — Competitive Programming Studio</title>
+  <title>CodeToGit (CTG) — Competitive Programming Studio</title>
   <link rel="stylesheet" href="ide.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -20,7 +20,7 @@
         </svg>
       </div>
       <div class="brand-info">
-        <span class="brand-title">TophHub <span class="badge">C++ IDE</span></span>
+        <span class="brand-title">CodeToGit <span class="badge">CTG</span></span>
         <span class="engine-badge" id="compilerBadge">GCC 10.2 (C++20)</span>
       </div>
 
@@ -69,6 +69,42 @@
         </svg>
         <span>Copy for Toph</span>
       </button>
+
+      <!-- Code::Blocks Actions -->
+      <div class="codeblocks-dropdown-wrap">
+        <button id="codeblocksBtn" class="btn btn-codeblocks" title="Code::Blocks IDE: Open or Export Project">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="8" height="8" rx="1.5"></rect>
+            <rect x="13" y="3" width="8" height="8" rx="1.5"></rect>
+            <rect x="3" y="13" width="8" height="8" rx="1.5"></rect>
+            <rect x="13" y="13" width="8" height="8" rx="1.5"></rect>
+          </svg>
+          <span>Code::Blocks ▾</span>
+        </button>
+        <div id="codeblocksMenu" class="codeblocks-menu hidden">
+          <button type="button" class="cb-menu-item" id="openInCodeblocksBtn">
+            <span class="cb-item-icon">🚀</span>
+            <div class="cb-item-text">
+              <span class="cb-item-title">Open in Code::Blocks</span>
+              <span class="cb-item-sub">Create project & launch IDE</span>
+            </div>
+          </button>
+          <button type="button" class="cb-menu-item" id="exportCbpBtn">
+            <span class="cb-item-icon">📄</span>
+            <div class="cb-item-text">
+              <span class="cb-item-title">Export Project (.cbp)</span>
+              <span class="cb-item-sub">Download Code::Blocks project file</span>
+            </div>
+          </button>
+          <button type="button" class="cb-menu-item" id="exportZipBtn">
+            <span class="cb-item-icon">📦</span>
+            <div class="cb-item-text">
+              <span class="cb-item-title">Download Starter Pack</span>
+              <span class="cb-item-sub">.cbp + solution.cpp + input.txt</span>
+            </div>
+          </button>
+        </div>
+      </div>
 
       <button id="syncGitHubBtn" class="btn btn-github" title="Commit solution directly to your GitHub repository">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
@@ -284,7 +320,7 @@
         </div>
         <div class="form-group">
           <label for="modalRepo">Target GitHub Repository</label>
-          <input type="text" id="modalRepo" placeholder="yasir-newb/tophhub" value="yasir-newb/tophhub">
+          <input type="text" id="modalRepo" placeholder="yasir-newb/CodeToGit" value="yasir-newb/CodeToGit">
         </div>
         <div class="form-group">
           <label for="modalBranch">Branch</label>

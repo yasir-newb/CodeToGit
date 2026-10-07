@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TophHub Settings</title>
+  <title>CodeToGit (CTG) Settings</title>
   <link rel="stylesheet" href="popup.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -21,8 +21,8 @@
           </svg>
         </div>
         <div class="brand-text">
-          <h1>TophHub</h1>
-          <span class="badge cpp-badge">C++ CP</span>
+          <h1>CodeToGit</h1>
+          <span class="badge cpp-badge">CTG</span>
         </div>
       </div>
       <div id="statusIndicator" class="status-pill disconnected">
@@ -62,8 +62,8 @@
       <!-- Quick Launch C++ IDE Card -->
       <div class="card ide-launch-card">
         <div class="ide-launch-info">
-          <span class="ide-launch-title">⚡ Built-in C++ IDE</span>
-          <span class="ide-launch-desc">Code, test against sample cases & 1-click sync</span>
+          <span class="ide-launch-title">⚡ C++ IDE & Code::Blocks</span>
+          <span class="ide-launch-desc">Code, test cases, export .cbp & 1-click sync</span>
         </div>
         <button type="button" id="openIdeBtn" class="btn btn-primary btn-sm">
           Open IDE ↗
@@ -76,7 +76,7 @@
         <div class="form-group">
           <div class="label-row">
             <label for="githubToken">GitHub Access Token</label>
-            <a href="https://github.com/settings/tokens/new?scopes=repo&description=TophHub-Sync" target="_blank" class="helper-link">Generate Token ↗</a>
+            <a href="https://github.com/settings/tokens/new?scopes=repo&description=CodeToGit-Sync" target="_blank" class="helper-link">Generate Token ↗</a>
           </div>
           <div class="input-wrapper">
             <input type="password" id="githubToken" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off" required />
@@ -90,7 +90,7 @@
         <!-- Repository Name -->
         <div class="form-group">
           <label for="repoInput">Target GitHub Repository</label>
-          <input type="text" id="repoInput" placeholder="username/Toph-Solutions" required />
+          <input type="text" id="repoInput" placeholder="username/CodeToGit" required />
           <p class="field-hint">Format: <code>username/repository-name</code></p>
         </div>
 
@@ -113,7 +113,7 @@
         <div class="switch-row">
           <div>
             <span class="switch-title">Auto Sync Accepted Submissions</span>
-            <p class="switch-desc">Sync automatically when verdict is Accepted</p>
+            <p class="switch-desc">Sync automatically when verdict is Accepted (Codeforces & Toph)</p>
           </div>
           <label class="switch">
             <input type="checkbox" id="autoSyncToggle" checked />
@@ -139,9 +139,11 @@
 
     <!-- Footer -->
     <footer class="footer">
-      <a href="https://toph.co/problems" target="_blank" class="footer-link">Solve on Toph.co ↗</a>
+      <a href="https://codeforces.com/problemset" target="_blank" class="footer-link">Codeforces ↗</a>
       <span class="footer-dot">•</span>
-      <span class="footer-note">C++ Competitive Programming</span>
+      <a href="https://toph.co/problems" target="_blank" class="footer-link">Toph.co ↗</a>
+      <span class="footer-dot">•</span>
+      <span class="footer-note">CodeToGit (CTG)</span>
     </footer>
   </div>
 

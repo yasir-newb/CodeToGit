@@ -1,17 +1,22 @@
 {
-  "name": "toph-to-github",
+  "name": "codetogit",
   "version": "1.0.0",
-  "description": "Automatic C++ problem solver and GitHub sync for Toph.co",
+  "description": "CodeToGit (CTG) - Automatic C++ problem solver and GitHub sync for competitive programming",
   "main": "cli/toph.js",
   "scripts": {
     "ide": "node ide/server.js",
     "start": "node ide/server.js",
+    "ctg": "node cli/toph.js",
     "toph": "node cli/toph.js",
+    "cb": "node cli/toph.js cb",
+    "new": "node cli/toph.js new",
     "init": "node cli/toph.js init",
     "generate-icons": "node generate_icons.js",
-    "package:zip": "powershell Compress-Archive -Path .\\extension\\* -DestinationPath .\\tophhub-extension.zip -Force"
+    "package:zip": "powershell Compress-Archive -Path .\\extension\\* -DestinationPath .\\codetogit-extension.zip -Force"
   },
   "keywords": [
+    "codetogit",
+    "codeforces",
     "toph",
     "toph.co",
     "github-sync",

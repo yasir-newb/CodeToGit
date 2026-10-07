@@ -1,11 +1,11 @@
-// TophHub Background Service Worker - Handles GitHub REST API Operations
+// CodeToGit (CTG) Background Service Worker - Handles GitHub REST API Operations & Multi-Platform Problem Fetching
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'COMMIT_SOLUTION') {
     handleCommit(request.payload)
       .then(result => sendResponse(result))
       .catch(error => {
-        console.error('[TophHub Background] Error:', error);
+        console.error('[CodeToGit Background] Error:', error);
         sendResponse({ success: false, error: error.message || 'Unknown error occurred' });
       });
     return true; // Keep message channel open for async response
@@ -15,7 +15,27 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     fetchTophProblem(request.slug)
       .then(data => sendResponse({ success: true, data }))
       .catch(err => {
-        console.warn('[TophHub Background] Problem fetch error:', err);
+        console.warn('[CodeToGit Background] Toph problem fetch error:', err);
+        sendResponse({ success: false, error: err.message });
+      });
+    return true;
+  }
+
+  if (request.action === 'FETCH_CF_SUBMISSION') {
+    fetchCodeforcesSubmission(request.url)
+      .then(data => sendResponse({ success: true, data }))
+      .catch(err => {
+        console.warn('[CodeToGit Background] Codeforces submission fetch error:', err);
+        sendResponse({ success: false, error: err.message });
+      });
+    return true;
+  }
+
+  if (request.action === 'FETCH_CF_PROBLEM') {
+    fetchCodeforcesProblem(request.contestId, request.problemIndex)
+      .then(data => sendResponse({ success: true, data }))
+      .catch(err => {
+        console.warn('[CodeToGit Background] Codeforces problem fetch error:', err);
         sendResponse({ success: false, error: err.message });
       });
     return true;
@@ -24,7 +44,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 async function handleCommit(data) {
   const {
+    platform = (data.problemUrl && data.problemUrl.includes('codeforces') ? 'codeforces' : 'toph'),
     problemSlug,
+    contestId,
+    problemIndex,
     problemTitle,
     language,
     cpuTime,
@@ -46,7 +69,7 @@ async function handleCommit(data) {
   const branch = (config.branch || 'main').trim();
 
   if (!token || !rawRepo) {
-    throw new Error('GitHub token or repository not configured in TophHub settings.');
+    throw new Error('GitHub token or repository not configured in CodeToGit settings.');
   }
 
   // Sanitize repo string: handles "owner/repo", "https://github.com/owner/repo", or "repo" with userInfo
@@ -62,26 +85,60 @@ async function handleCommit(data) {
   }
 
   if (!owner || !repoName) {
-    throw new Error(`Repository "${config.repo}" is invalid. Please set as "username/repository" in TophHub settings.`);
+    throw new Error(`Repository "${config.repo}" is invalid. Please set as "username/repository" in CodeToGit settings.`);
   }
 
   // Determine file extension (defaults to .cpp)
   const ext = getFileExtension(language, config.langPreference);
-  const cleanSlug = (problemSlug || 'problem').trim().toLowerCase();
-  const solutionPath = `toph/${cleanSlug}/solution.${ext}`;
-  const problemReadmePath = `toph/${cleanSlug}/README.md`;
   const rootReadmePath = `README.md`;
 
-  // 1. Prepare Solution Content (Clean code without comment bloat)
-  const solutionContent = code.trim() + '\n';
+  let solutionPath = '';
+  let problemReadmePath = '';
+  let commitMsg = '';
+  let problemReadmeContent = '';
+  const isCF = platform.toLowerCase() === 'codeforces';
 
-  // 2. Commit Solution File
-  const commitMsg = `Solve: ${problemTitle || cleanSlug} [Accepted] (${language || 'C++'})`;
-  await putGitHubFile(owner, repoName, solutionPath, commitMsg, solutionContent, branch, token);
+  if (isCF) {
+    const cleanContest = (contestId || 'contest').toString().trim();
+    const cleanIndex = (problemIndex || 'A').toString().trim().toUpperCase();
+    const cleanTitle = (problemTitle || `${cleanContest}${cleanIndex}`).trim();
+    const safeUrl = problemUrl || `https://codeforces.com/contest/${cleanContest}/problem/${cleanIndex}`;
 
-  // 3. Commit Problem README
-  const problemReadmeContent =
-`# [${problemTitle || cleanSlug}](${problemUrl || `https://toph.co/p/${cleanSlug}`})
+    solutionPath = `codeforces/${cleanContest}/${cleanIndex}/solution.${ext}`;
+    problemReadmePath = `codeforces/${cleanContest}/${cleanIndex}/README.md`;
+    commitMsg = `Solve: Codeforces ${cleanContest}${cleanIndex} - ${cleanTitle} [Accepted] (${language || 'C++'})`;
+
+    problemReadmeContent =
+`# [${cleanTitle}](${safeUrl})
+
+- **Platform:** [Codeforces](https://codeforces.com)
+- **Contest:** \`${cleanContest}\`
+- **Problem Index:** \`${cleanIndex}\`
+- **Verdict:** Accepted (AC)
+- **Language:** ${language || 'C++'}
+- **CPU Time:** \`${cpuTime || '-'}\`
+- **Memory:** \`${memory || '-'}\`
+- **Submission ID:** \`${submissionId || '-'}\`
+- **Solution:** [\`solution.${ext}\`](./solution.${ext})
+
+---
+
+## Problem Description
+
+${problemDescription || '_Problem statement not available. View directly on [Codeforces](' + safeUrl + ')._'}
+`;
+  } else {
+    // Toph.co platform
+    const cleanSlug = (problemSlug || 'problem').trim().toLowerCase();
+    const cleanTitle = (problemTitle || cleanSlug).trim();
+    const safeUrl = problemUrl || `https://toph.co/p/${cleanSlug}`;
+
+    solutionPath = `toph/${cleanSlug}/solution.${ext}`;
+    problemReadmePath = `toph/${cleanSlug}/README.md`;
+    commitMsg = `Solve: ${cleanTitle} [Accepted] (${language || 'C++'})`;
+
+    problemReadmeContent =
+`# [${cleanTitle}](${safeUrl})
 
 - **Platform:** [Toph.co](https://toph.co)
 - **Problem Slug:** \`${cleanSlug}\`
@@ -96,35 +153,46 @@ async function handleCommit(data) {
 
 ## Problem Description
 
-${problemDescription || '_Problem statement not available. View directly on [Toph.co](' + (problemUrl || `https://toph.co/p/${cleanSlug}`) + ')._'}
+${problemDescription || '_Problem statement not available. View directly on [Toph.co](' + safeUrl + ')._'}
 `;
+  }
 
+  // 1. Solution Content
+  const solutionContent = code.trim() + '\n';
+
+  // 2. Commit Solution File
+  await putGitHubFile(owner, repoName, solutionPath, commitMsg, solutionContent, branch, token);
+
+  // 3. Commit Problem README
   try {
-    await putGitHubFile(owner, repoName, problemReadmePath, `Docs: Add problem statement for ${problemTitle || cleanSlug}`, problemReadmeContent, branch, token);
+    const readmeDocMsg = `Docs: Add problem statement for ${problemTitle || (isCF ? `${contestId}${problemIndex}` : problemSlug)}`;
+    await putGitHubFile(owner, repoName, problemReadmePath, readmeDocMsg, problemReadmeContent, branch, token);
   } catch (e) {
-    console.warn('[TophHub] Failed to update problem README (non-critical):', e);
+    console.warn('[CodeToGit] Failed to update problem README (non-critical):', e);
   }
 
   // 4. Update Root README (Index Table of Solved Problems)
   try {
     await updateRootReadme(owner, repoName, rootReadmePath, {
-      title: problemTitle || cleanSlug,
-      slug: cleanSlug,
-      url: problemUrl || `https://toph.co/p/${cleanSlug}`,
+      platform: isCF ? 'Codeforces' : 'Toph.co',
+      title: problemTitle || (isCF ? `Codeforces ${contestId}${problemIndex}` : problemSlug),
+      slug: isCF ? `${contestId}/${problemIndex}` : problemSlug,
+      url: problemUrl || (isCF ? `https://codeforces.com/contest/${contestId}/problem/${problemIndex}` : `https://toph.co/p/${problemSlug}`),
+      solutionPath: solutionPath,
       language: language || 'C++',
       cpuTime: cpuTime || '-',
       memory: memory || '-',
       ext
     }, branch, token);
   } catch (e) {
-    console.warn('[TophHub] Failed to update root README index:', e);
+    console.warn('[CodeToGit] Failed to update root README index:', e);
   }
 
   // Increment synced count
   const newCount = (config.syncedCount || 0) + 1;
   await chrome.storage.local.set({ 
     syncedCount: newCount,
-    lastSyncedProblem: problemTitle || cleanSlug
+    lastSyncedProblem: problemTitle || (isCF ? `CF ${contestId}${problemIndex}` : problemSlug)
   });
 
   return {
@@ -142,7 +210,7 @@ async function getFileSha(owner, repo, path, branch, token) {
       headers: {
         'Authorization': authHeader,
         'Accept': 'application/vnd.github.v3+json',
-        'User-Agent': 'TophHub-Extension/1.0.0'
+        'User-Agent': 'CodeToGit-Extension/1.0.0'
       }
     });
 
@@ -166,7 +234,7 @@ async function putGitHubFile(owner, repo, path, message, contentStr, branch, tok
     'Authorization': authHeader,
     'Accept': 'application/vnd.github.v3+json',
     'Content-Type': 'application/json',
-    'User-Agent': 'TophHub-Extension/1.0.0'
+    'User-Agent': 'CodeToGit-Extension/1.0.0'
   };
 
   const payload = {
@@ -191,7 +259,7 @@ async function putGitHubFile(owner, repo, path, message, contentStr, branch, tok
 
   // If branch doesn't exist on a new repository, retry without branch parameter
   if (!res.ok && (res.status === 404 || res.status === 409 || res.status === 422) && payload.branch) {
-    console.warn(`[TophHub] PUT ${path} failed with status ${res.status}. Retrying without branch...`);
+    console.warn(`[CodeToGit] PUT ${path} failed with status ${res.status}. Retrying without branch...`);
     delete payload.branch;
     res = await fetch(url, {
       method: 'PUT',
@@ -213,15 +281,15 @@ async function updateRootReadme(owner, repo, rootPath, problemData, branch, toke
   const existing = await getFileSha(owner, repo, rootPath, branch, token);
   let content = existing.content;
 
-  const tableHeader = '| # | Problem | Language | Time | Memory | Solution |\n|---|---|---|---|---|---|';
-  const newRow = `| - | [${problemData.title}](${problemData.url}) | \`${problemData.language}\` | \`${problemData.cpuTime}\` | \`${problemData.memory}\` | [solution.${problemData.ext}](./toph/${problemData.slug}/solution.${problemData.ext}) |`;
+  const tableHeader = '| Platform | Problem | Language | Time | Memory | Solution |\n|---|---|---|---|---|---|';
+  const newRow = `| ${problemData.platform} | [${problemData.title}](${problemData.url}) | \`${problemData.language}\` | \`${problemData.cpuTime}\` | \`${problemData.memory}\` | [solution.${problemData.ext}](./${problemData.solutionPath}) |`;
 
   if (!content) {
     // Initial README template
     content = 
-`# Toph.co Solutions (C++)
+`# Competitive Programming Solutions (C++)
 
-A collection of competitive programming solutions solved on [Toph.co](https://toph.co), automatically synced using [TophHub](https://github.com/${owner}/${repo}).
+A collection of competitive programming solutions solved on [Codeforces](https://codeforces.com) and [Toph.co](https://toph.co), automatically synced using [CodeToGit](https://github.com/${owner}/${repo}).
 
 ## 📊 Solved Problems
 
@@ -229,21 +297,24 @@ ${tableHeader}
 ${newRow}
 
 ---
-*Created automatically by TophHub Extension.*
+*Created automatically by CodeToGit (CTG) Extension.*
 `;
   } else {
-    // Check if problem is already in the table
-    if (content.includes(`toph/${problemData.slug}/`)) {
-      // Already present in README, no update needed
+    // Check if solution path is already in the table
+    if (content.includes(problemData.solutionPath)) {
       return;
     }
 
     if (content.includes(tableHeader)) {
-      // Append row to existing table
       content = content.replace(tableHeader, `${tableHeader}\n${newRow}`);
     } else {
-      // Table doesn't exist, append section
-      content += `\n\n## 📊 Solved Problems\n\n${tableHeader}\n${newRow}\n`;
+      // Check legacy table format: | # | Problem | ...
+      const legacyHeader = '| # | Problem | Language | Time | Memory | Solution |\n|---|---|---|---|---|---|';
+      if (content.includes(legacyHeader)) {
+        content = content.replace(legacyHeader, `${tableHeader}\n${newRow}`);
+      } else {
+        content += `\n\n## 📊 Solved Problems\n\n${tableHeader}\n${newRow}\n`;
+      }
     }
   }
 
@@ -284,7 +355,7 @@ function getStorage(keys) {
   });
 }
 
-// Fetch Problem Data directly from Toph.co (runs in background with host permissions, bypassing CORS)
+// Fetch Problem Data directly from Toph.co
 async function fetchTophProblem(slug) {
   const cleanSlug = (slug || '')
     .replace(/.*toph\.co\/p\//i, '')
@@ -301,7 +372,7 @@ async function fetchTophProblem(slug) {
     const jsonRes = await fetch(`https://toph.co/p/${cleanSlug}.json`, {
       headers: {
         'Accept': 'application/json, text/plain, */*',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) CodeToGit/1.0'
       }
     });
 
@@ -330,7 +401,7 @@ async function fetchTophProblem(slug) {
       };
     }
   } catch (err) {
-    console.warn('[TophHub Background] JSON fetch error:', err);
+    console.warn('[CodeToGit Background] Toph JSON fetch error:', err);
   }
 
   // 2. Fallback to scraping the HTML problem page
@@ -358,10 +429,160 @@ async function fetchTophProblem(slug) {
       };
     }
   } catch (err) {
-    console.warn('[TophHub Background] HTML fetch error:', err);
+    console.warn('[CodeToGit Background] Toph HTML fetch error:', err);
   }
 
   throw new Error(`Could not fetch problem "${cleanSlug}" from Toph.co`);
+}
+
+// Fetch Codeforces Submission Source Code directly
+async function fetchCodeforcesSubmission(url) {
+  if (!url) throw new Error('No Codeforces submission URL provided');
+
+  const res = await fetch(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) CodeToGit/1.0',
+      'Accept': 'text/html,application/xhtml+xml,application/xml'
+    }
+  });
+
+  if (!res.ok) {
+    throw new Error(`Failed to fetch Codeforces submission (${res.status} ${res.statusText})`);
+  }
+
+  const html = await res.text();
+
+  // Codeforces puts source in <pre id="program-source-text">...code...</pre>
+  const match = html.match(/<pre[^>]*id=["']program-source-text["'][^>]*>([\s\S]*?)<\/pre>/i);
+  if (match && match[1]) {
+    const code = decodeHtmlEntities(match[1]).trim();
+    return { code };
+  }
+
+  throw new Error('Could not find program source code in Codeforces submission response.');
+}
+
+// Fetch Codeforces Problem Statement & Samples
+async function fetchCodeforcesProblem(contestId, problemIndex) {
+  if (!contestId || !problemIndex) throw new Error('Missing contestId or problemIndex');
+
+  const cleanContest = contestId.toString().trim();
+  const cleanIndex = problemIndex.toString().trim().toUpperCase();
+  const storageKey = `cf_problem_${cleanContest}${cleanIndex}`;
+
+  // 1. Storage check (instant hit if already cached by content script)
+  try {
+    const stored = await getStorage([storageKey, 'cf_active_problem']);
+    if (stored[storageKey] && stored[storageKey].samples && stored[storageKey].samples.length > 0 && (stored[storageKey].samples[0].stdin || stored[storageKey].desc)) {
+      return stored[storageKey];
+    }
+    if (stored.cf_active_problem && 
+        stored.cf_active_problem.contestId == cleanContest && 
+        String(stored.cf_active_problem.problemIndex).toUpperCase() === cleanIndex &&
+        stored.cf_active_problem.samples && stored.cf_active_problem.samples.length > 0 &&
+        (stored.cf_active_problem.samples[0].stdin || stored.cf_active_problem.desc)) {
+      return stored.cf_active_problem;
+    }
+  } catch (e) {}
+
+  // 2. Query open tabs for any active Codeforces tab with this problem
+  try {
+    const tabs = await new Promise(r => chrome.tabs.query({ url: '*://*.codeforces.com/*' }, r));
+    if (tabs && tabs.length > 0) {
+      for (const t of tabs) {
+        const u = t.url || '';
+        if (u.includes(`/${cleanContest}/`) && u.toUpperCase().includes(`/${cleanIndex}`)) {
+          const tabData = await new Promise(resolve => {
+            chrome.tabs.sendMessage(t.id, { action: 'GET_PAGE_PROBLEM_DATA' }, res => {
+              if (res && res.success && res.data) resolve(res.data);
+              else resolve(null);
+            });
+          });
+          if (tabData && tabData.samples && tabData.samples.length > 0 && (tabData.samples[0].stdin || tabData.desc)) {
+            chrome.storage.local.set({ [storageKey]: tabData, cf_active_problem: tabData });
+            return tabData;
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[CodeToGit Background] Tab query check failed:', e);
+  }
+
+  // 3. Official Codeforces REST API query for problem metadata
+  let apiProblem = null;
+  try {
+    const apiRes = await fetch('https://codeforces.com/api/problemset.problems');
+    if (apiRes.ok) {
+      const apiData = await apiRes.json();
+      if (apiData.status === 'OK' && apiData.result && apiData.result.problems) {
+        apiProblem = apiData.result.problems.find(p => p.contestId == cleanContest && String(p.index).toUpperCase() === cleanIndex);
+      }
+    }
+  } catch (e) {
+    console.warn('[CodeToGit Background] CF API query failed:', e);
+  }
+
+  const cfUrl = `https://codeforces.com/contest/${cleanContest}/problem/${cleanIndex}`;
+
+  // 4. Try opening a background tab to let content script scrape the real statement and sample tests
+  try {
+    const tempTab = await new Promise(r => chrome.tabs.create({ url: cfUrl, active: false }, r));
+    if (tempTab && tempTab.id) {
+      const scraped = await new Promise(resolve => {
+        let attempts = 0;
+        const interval = setInterval(async () => {
+          attempts++;
+          const data = await getStorage([storageKey]);
+          if (data[storageKey] && data[storageKey].samples && data[storageKey].samples[0] && (data[storageKey].samples[0].stdin || data[storageKey].samples[0].expected)) {
+            clearInterval(interval);
+            try { chrome.tabs.remove(tempTab.id); } catch(e) {}
+            resolve(data[storageKey]);
+          } else if (attempts >= 12) { // 3.6s timeout
+            clearInterval(interval);
+            try { chrome.tabs.remove(tempTab.id); } catch(e) {}
+            resolve(null);
+          }
+        }, 300);
+      });
+      if (scraped) return scraped;
+    }
+  } catch (e) {
+    console.warn('[CodeToGit Background] Background tab scrape failed:', e);
+  }
+
+  // 5. Fallback compiled metadata with official API info
+  const problemTitle = apiProblem ? `${cleanContest}${cleanIndex} - ${apiProblem.name}` : `Codeforces ${cleanContest}${cleanIndex}`;
+  const tagsStr = (apiProblem && apiProblem.tags && apiProblem.tags.length > 0) ? apiProblem.tags.join(', ') : 'competitive programming';
+  const ratingStr = (apiProblem && apiProblem.rating) ? `Rating: ${apiProblem.rating}` : 'Unrated';
+
+  const fallback = {
+    slug: `cf_${cleanContest}${cleanIndex}`,
+    contestId: cleanContest,
+    problemIndex: cleanIndex,
+    title: problemTitle,
+    timeLimit: '1.0s',
+    memoryLimit: '256MB',
+    desc: `Problem: ${problemTitle}\n${ratingStr} | Tags: ${tagsStr}\n\nOfficial Link: ${cfUrl}\n\nPaste sample tests into the workbench or open the problem in your browser. When finished, click "Submit on Codeforces" or "Push to GitHub".`,
+    input: 'Standard input format (cin >> ...)',
+    output: 'Standard output format (cout << ...)',
+    samples: [{ stdin: '', expected: '' }],
+    platform: 'codeforces',
+    url: cfUrl
+  };
+
+  chrome.storage.local.set({ [storageKey]: fallback });
+  return fallback;
+}
+
+function cleanSampleText(str) {
+  if (!str) return '';
+  return decodeHtmlEntities(str)
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<div class=["']test-example-line["']>([\s\S]*?)<\/div>/gi, '$1\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/\r\n/g, '\n')
+    .trim();
 }
 
 function stripHtml(html) {
@@ -373,7 +594,21 @@ function stripHtml(html) {
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
 
+function decodeHtmlEntities(str) {
+  if (!str) return '';
+  return str
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&#(\d+);/g, (match, dec) => String.fromCharCode(dec))
+    .replace(/&#x([0-9a-fA-F]+);/g, (match, hex) => String.fromCharCode(parseInt(hex, 16)));
+}

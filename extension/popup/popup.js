@@ -27,24 +27,66 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (openIdeBtn) {
     openIdeBtn.addEventListener('click', () => {
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        let slug = '';
-        if (tabs && tabs[0] && tabs[0].url) {
-          const match = tabs[0].url.match(/toph\.co\/p\/([a-zA-Z0-9_-]+)/);
-          if (match) {
-            slug = match[1];
+        let problemTarget = '';
+        const activeTab = (tabs && tabs[0]) ? tabs[0] : null;
+        const currentUrl = activeTab ? (activeTab.url || '') : '';
+
+        // 1. Check if current active tab is a Codeforces problem page
+        const cfMatch = currentUrl.match(/(?:contest|gym|problemset\/problem)\/([0-9]+)(?:\/problem)?\/([a-zA-Z0-9]+)/i);
+        if (cfMatch && activeTab) {
+          const contestId = cfMatch[1];
+          const problemIndex = cfMatch[2].toUpperCase();
+          problemTarget = `${contestId}${problemIndex}`;
+
+          // Ask the active tab to extract and cache full problem info right now
+          try {
+            chrome.tabs.sendMessage(activeTab.id, { action: 'GET_PAGE_PROBLEM_DATA' }, (res) => {
+              if (res && res.success && res.data) {
+                chrome.storage.local.set({
+                  cf_active_problem: res.data,
+                  [`cf_problem_${contestId}${problemIndex}`]: res.data,
+                  last_problem_platform: 'codeforces'
+                }, () => {
+                  chrome.tabs.create({ url: chrome.runtime.getURL(`ide/index.html?problem=${encodeURIComponent(problemTarget)}`) });
+                });
+              } else {
+                chrome.tabs.create({ url: chrome.runtime.getURL(`ide/index.html?problem=${encodeURIComponent(problemTarget)}`) });
+              }
+            });
+            return;
+          } catch (e) {
+            // Fallthrough
           }
         }
-        if (slug) {
-          chrome.tabs.create({ url: chrome.runtime.getURL(`ide/index.html?problem=${slug}`) });
-        } else {
-          chrome.storage.local.get(['activeProblemSlug'], (data) => {
-            const targetSlug = data.activeProblemSlug;
-            const targetUrl = targetSlug 
-              ? chrome.runtime.getURL(`ide/index.html?problem=${targetSlug}`)
-              : chrome.runtime.getURL('ide/index.html');
-            chrome.tabs.create({ url: targetUrl });
-          });
+
+        if (problemTarget) {
+          chrome.tabs.create({ url: chrome.runtime.getURL(`ide/index.html?problem=${encodeURIComponent(problemTarget)}`) });
+          return;
         }
+
+        // 2. Check if current active tab is a Toph problem page
+        const tophMatch = currentUrl.match(/toph\.co\/p\/([a-zA-Z0-9_-]+)/i);
+        if (tophMatch && tophMatch[1] && tophMatch[1] !== 'problems') {
+          chrome.tabs.create({ url: chrome.runtime.getURL(`ide/index.html?problem=${encodeURIComponent(tophMatch[1])}`) });
+          return;
+        }
+
+        // 3. Fallback: check stored active problem in extension storage
+        chrome.storage.local.get(['activeProblemSlug', 'cf_active_problem', 'last_problem_platform'], (data) => {
+          let fallback = '';
+          if (data.last_problem_platform === 'codeforces' && data.cf_active_problem && data.cf_active_problem.contestId) {
+            fallback = `${data.cf_active_problem.contestId}${data.cf_active_problem.problemIndex}`;
+          } else if (data.activeProblemSlug) {
+            fallback = data.activeProblemSlug;
+          } else if (data.cf_active_problem && data.cf_active_problem.contestId) {
+            fallback = `${data.cf_active_problem.contestId}${data.cf_active_problem.problemIndex}`;
+          }
+
+          const targetUrl = fallback 
+            ? chrome.runtime.getURL(`ide/index.html?problem=${encodeURIComponent(fallback)}`)
+            : chrome.runtime.getURL('ide/index.html');
+          chrome.tabs.create({ url: targetUrl });
+        });
       });
     });
   }
@@ -190,7 +232,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         },
         body: JSON.stringify({
           name: repoName,
-          description: 'My Competitive Programming solutions for Toph.co in C++ (Synced by TophHub)',
+          description: 'My Competitive Programming solutions in C++ (Synced by CodeToGit - CTG)',
           private: false,
           auto_init: true
         })

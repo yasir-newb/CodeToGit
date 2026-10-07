@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "TophHub - Toph to GitHub Sync",
+  "name": "CodeToGit (CTG) - CP to GitHub Sync",
   "version": "1.0.0",
-  "description": "Automatically sync your accepted C++ problem solutions and submissions on Toph.co to GitHub.",
+  "description": "Automatically sync your accepted C++ problem solutions and submissions on Toph.co & Codeforces to GitHub.",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
@@ -10,7 +10,7 @@
   },
   "action": {
     "default_popup": "popup/popup.html",
-    "default_title": "TophHub Settings",
+    "default_title": "CodeToGit (CTG) Settings",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",
@@ -19,10 +19,13 @@
   },
   "permissions": [
     "storage",
-    "activeTab"
+    "activeTab",
+    "tabs"
   ],
   "host_permissions": [
     "https://toph.co/*",
+    "https://codeforces.com/*",
+    "https://*.codeforces.com/*",
     "https://api.github.com/*",
     "https://ce.judge0.com/*",
     "https://emkc.org/*"
@@ -33,7 +36,9 @@
   "content_scripts": [
     {
       "matches": [
-        "https://toph.co/*"
+        "https://toph.co/*",
+        "https://codeforces.com/*",
+        "https://*.codeforces.com/*"
       ],
       "js": [
         "scripts/content.js"
@@ -51,7 +56,9 @@
         "ide/*"
       ],
       "matches": [
-        "https://toph.co/*"
+        "https://toph.co/*",
+        "https://codeforces.com/*",
+        "https://*.codeforces.com/*"
       ]
     }
   ]

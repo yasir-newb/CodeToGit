@@ -13,3 +13,11 @@ npm-debug.log*
 # Git and temporary
 .vscode/
 .idea/
+scratch/
+
+# Code::Blocks build artifacts and user layout files
+*.layout
+*.depend
+*.cbTemp
+bin/
+obj/
