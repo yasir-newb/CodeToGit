@@ -1000,9 +1000,25 @@ int main() {
       });
     }
 
-    closeModalBtn.addEventListener('click', () => settingsModal.classList.add('hidden'));
-    settingsModal.addEventListener('click', (e) => {
-      if (e.target === settingsModal) settingsModal.classList.add('hidden');
+    if (closeModalBtn) {
+      closeModalBtn.addEventListener('click', () => settingsModal.classList.add('hidden'));
+    }
+    if (settingsModal) {
+      settingsModal.addEventListener('click', (e) => {
+        if (e.target === settingsModal) settingsModal.classList.add('hidden');
+      });
+    }
+
+    // Dismiss modals and dropdowns on Escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (settingsModal && !settingsModal.classList.contains('hidden')) {
+          settingsModal.classList.add('hidden');
+        }
+        if (snippetsMenu) snippetsMenu.classList.add('hidden');
+        if (codeblocksMenu) codeblocksMenu.classList.add('hidden');
+        hideSuggestions();
+      }
     });
 
     // Dismiss dropdowns when clicking outside
